@@ -44,7 +44,6 @@ public class AuthMod {
     public void serverLoad(FMLServerStartingEvent event) {
         event.registerServerCommand(new AuthCommand());
         MinecraftForge.EVENT_BUS.register(new ChatEventHandler());
-        FMLCommonHandler.instance().bus().register(new BanStatusSyncer());
         logger.info("AuthMod loaded successfully!");
     }
 

@@ -23,28 +23,39 @@ public class PlayerData {
     /** Статус бана (новое поле) */
     private final boolean isBanned;
 
+    private final boolean isOperator;
+
     // ========================================================================
     // Конструкторы и геттеры
     // ========================================================================
 
     /**
-     * Конструктор для новых записей
+     * Конструктор для создания нового объекта PlayerData.
+     *
+     * @param username Имя пользователя
+     * @param hashedPassword Хеш пароля
+     * @param registrationDate Дата регистрации
+     * @param registrationIP IP-адрес регистрации
+     * @param lastLoginIP Последний IP-адрес входа
+     * @param isBanned Статус бана
+     * @param isOperator Статус оператора (новый параметр)
      */
     public PlayerData(String username, String hashedPassword, long registrationDate,
-                      String registrationIP, String lastLoginIP, boolean isBanned) {
+                      String registrationIP, String lastLoginIP, boolean isBanned, boolean isOperator) { // Добавлен isOperator
         this.username = username;
         this.hashedPassword = hashedPassword;
         this.registrationDate = registrationDate;
         this.registrationIP = registrationIP;
         this.lastLoginIP = lastLoginIP;
         this.isBanned = isBanned;
+        this.isOperator = isOperator; // Инициализация нового поля
     }
 
     /**
      * Конструктор для совместимости со старыми данными
      */
     public PlayerData(String username, String hashedPassword, long registrationDate) {
-        this(username, hashedPassword, registrationDate, "unknown", "unknown", false);
+        this(username, hashedPassword, registrationDate, "unknown", "unknown", false, false);
     }
 
     public String getUsername() {
@@ -69,5 +80,8 @@ public class PlayerData {
 
     public boolean isBanned() {
         return isBanned;
+    }
+    public boolean isOperator() {
+        return isOperator;
     }
 }

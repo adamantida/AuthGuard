@@ -13,6 +13,8 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.example.authmod.AuthEventHandler.normalizeUsername;
+
 /**
  * Менеджер данных игроков.
  * Отвечает за сохранение и загрузку данных об авторизации.
@@ -76,7 +78,7 @@ public class PlayerDataManager {
     public static void registerPlayer(String username, String password, String ip) {
         String hashedPassword = AuthHelper.hashPassword(password);
         PlayerData data = new PlayerData(username, hashedPassword, System.currentTimeMillis(),
-                ip, ip, false);
+                ip, ip, false,false);
         PLAYER_DATA_MAP.put(username.toLowerCase(), data);
         scheduleSave();
     }
@@ -93,7 +95,8 @@ public class PlayerDataManager {
                     oldData.getRegistrationDate(),
                     oldData.getRegistrationIP(),
                     ip,
-                    oldData.isBanned()
+                    oldData.isBanned(),
+                    oldData.isOperator()
             );
             PLAYER_DATA_MAP.put(username.toLowerCase(), newData);
             scheduleSave();
@@ -123,7 +126,8 @@ public class PlayerDataManager {
                     oldData.getRegistrationDate(),
                     oldData.getRegistrationIP(),
                     oldData.getLastLoginIP(),
-                    oldData.isBanned()
+                    oldData.isBanned(),
+                    oldData.isOperator()
             );
 
             PLAYER_DATA_MAP.put(username.toLowerCase(), newData);
@@ -143,7 +147,8 @@ public class PlayerDataManager {
                     oldData.getRegistrationDate(),
                     oldData.getRegistrationIP(),
                     oldData.getLastLoginIP(),
-                    oldData.isBanned()
+                    oldData.isBanned(),
+                    oldData.isOperator()
             );
             PLAYER_DATA_MAP.put(username.toLowerCase(), newData);
             scheduleSave();
@@ -160,7 +165,8 @@ public class PlayerDataManager {
                     oldData.getRegistrationDate(),
                     oldData.getRegistrationIP(),
                     oldData.getLastLoginIP(),
-                    banned
+                    banned,
+                    oldData.isOperator()
             );
             PLAYER_DATA_MAP.put(username.toLowerCase(), newData);
             scheduleSave();
@@ -260,4 +266,41 @@ public class PlayerDataManager {
     public static List<String> getAllPlayerNames() {
         return new ArrayList<>(PLAYER_DATA_MAP.keySet());
     }
+    public static boolean isPlayerOperator(String username) {
+        PlayerData data = getPlayerData(username);
+        return data != null && data.isOperator();
+    }
+    public static boolean updateOperatorStatus(String username, boolean isOperator) {
+        String normalizedUsername = normalizeUsername(username);
+        PlayerData oldData = getPlayerData(normalizedUsername);
+
+        if (oldData != null) {
+            // Создаем новый объект PlayerData с обновленным статусом оператора
+            PlayerData newData = new PlayerData(
+                    oldData.getUsername(),
+                    oldData.getHashedPassword(),
+                    oldData.getRegistrationDate(),
+                    oldData.getRegistrationIP(),
+                    oldData.getLastLoginIP(),
+                    oldData.isBanned(),
+                    isOperator // Обновленный статус оператора
+            );
+            // Заменяем старые данные на новые
+            PLAYER_DATA_CACHE.put(normalizedUsername, newData);
+            // Сохраняем обновленные данные
+            savePlayerData(newData);
+            return true;
+        }
+        return false; // Игрок не найден
+    }
+    public static Set<String> getOperatorUsernames() {
+        Set<String> operators = new HashSet<>();
+        for (Map.Entry<String, PlayerData> entry : PLAYER_DATA_CACHE.entrySet()) {
+            if (entry.getValue().isOperator()) {
+                operators.add(entry.getKey());
+            }
+        }
+        return operators;
+    }
+
 }
