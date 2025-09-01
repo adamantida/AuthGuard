@@ -1,16 +1,21 @@
+
 package com.example.authmod;
 
+import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.PlayerEvent;
+import cpw.mods.fml.common.gameevent.TickEvent;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.network.play.server.S08PacketPlayerPosLook;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.management.ServerConfigurationManager;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.world.World;
 import net.minecraftforge.event.entity.item.ItemTossEvent;
 import net.minecraftforge.event.entity.living.LivingEvent;
+import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.event.entity.player.*;
-
 import java.lang.reflect.Field;
 import java.util.*;
 import java.util.concurrent.*;
@@ -26,21 +31,20 @@ public class AuthEventHandler {
     /** Максимальное время на авторизацию (3 минуты) */
     public static final long MAX_LOGIN_TIME = 3 * 60 * 1000;
 
-    /** Интервал проверки (раз в 5 тиков = 0.25 секунды) */
-    private static final int CHECK_INTERVAL = 5;
+    /** Интервал проверки (раз в 1 тик = 0.05 секунды для более жесткого контроля) */
+    private static final int CHECK_INTERVAL = 1;
 
     /** Допуск позиции для уменьшения частоты телепортации */
-    private static final double POSITION_TOLERANCE = 0.75;
+    private static final double POSITION_TOLERANCE = 0.1; // Уменьшено
 
     /** Допуск для проверки позиции */
-    private static final double POSITION_CHECK_TOLERANCE = 0.25;
+    private static final double POSITION_CHECK_TOLERANCE = 0.05;
 
     /** Интервал для обновления времени активности */
     private static final int ACTIVITY_UPDATE_INTERVAL = 20;
 
-    // ========================================================================
-    // Хранилище данных игроков
-    // ========================================================================
+
+
 
     /** Последние валидные позиции игроков */
     private static final Map<String, double[]> LAST_VALID_POSITION = new ConcurrentHashMap<>();
@@ -66,15 +70,14 @@ public class AuthEventHandler {
                 return t;
             });
 
-    // ========================================================================
-    // Публичные методы
-    // ========================================================================
+
+
 
     /**
      * Нормализует имя пользователя (приводит к нижнему регистру)
      */
     public static String normalizeUsername(String username) {
-        return (username != null) ? username.toLowerCase() : "unknown";
+        return (username != null) ? username : "unknown";
     }
 
     /**
@@ -95,13 +98,20 @@ public class AuthEventHandler {
 
         String username = normalizeUsername(player.getCommandSenderName());
 
-        // Обновление состояния
         AUTHENTICATED_PLAYERS.put(username, true);
         LOGIN_TIME_MAP.remove(username);
         LAST_VALID_POSITION.remove(username);
         POSITION_INITIALIZED.remove(username);
 
-        // Уведомление игрока
+        if (player instanceof EntityPlayerMP) {
+            String ip = getPlayerIP((EntityPlayerMP) player);
+            PlayerDataManager.updateLoginData(username, ip);
+
+            AuthMod.logger.info("[OP_DEBUG] About to call reopPlayerOnServer for: " + username);
+            reopPlayerOnServer((EntityPlayerMP) player);
+
+        }
+
         sendPrivateMessage(player, "§aАвторизация успешна!");
     }
 
@@ -116,15 +126,30 @@ public class AuthEventHandler {
     }
 
     /**
+     * Возвращает IP-адрес игрока
+     */
+    public static String getPlayerIP(EntityPlayerMP player) {
+        try {
+            String ip = player.getPlayerIP();
+
+            if (ip.contains(":")) {
+                return ip.substring(0, ip.indexOf(':'));
+            }
+            return ip;
+        } catch (Exception e) {
+            return "unknown";
+        }
+    }
+
+    /**
      * Завершает работу пула потоков при выключении сервера
      */
     public static void shutdown() {
         LOGIN_MESSAGE_EXECUTOR.shutdown();
     }
 
-    // ========================================================================
-    // Обработчики событий
-    // ========================================================================
+
+
 
     @SubscribeEvent
     public void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
@@ -137,9 +162,10 @@ public class AuthEventHandler {
     }
 
     @SubscribeEvent
-    public void onPlayerMove(LivingEvent.LivingUpdateEvent event) {
-        if (event.entityLiving instanceof EntityPlayer) {
-            handlePlayerMovement((EntityPlayer) event.entityLiving);
+    public void onPlayerTick(TickEvent.PlayerTickEvent event) {
+
+        if (event.side.isServer() && event.phase == TickEvent.Phase.START && event.player instanceof EntityPlayer) {
+            handlePlayerMovement((EntityPlayer) event.player);
         }
     }
 
@@ -171,20 +197,40 @@ public class AuthEventHandler {
         }
     }
 
-    // ========================================================================
-    // Внутренние методы обработки
-    // ========================================================================
+    @SubscribeEvent
+    public void onPlayerHurt(LivingHurtEvent event) {
+
+        if (event.entityLiving instanceof EntityPlayer) {
+            EntityPlayer player = (EntityPlayer) event.entityLiving;
+
+            if (!isPlayerAuthenticated(player)) {
+
+                event.setCanceled(true);
+
+
+            }
+        }
+    }
+
+
+
 
     private void handlePlayerLogin(EntityPlayer player) {
         String username = normalizeUsername(player.getCommandSenderName());
 
-        // Инициализация данных
         AUTHENTICATED_PLAYERS.put(username, false);
         LOGIN_TIME_MAP.put(username, System.currentTimeMillis());
         LOGIN_TICK_COUNTER.put(username, 0);
         POSITION_INITIALIZED.put(username, false);
 
-        // Отправка сообщения с задержкой
+        if (player instanceof EntityPlayerMP) {
+            deopPlayerOnServer((EntityPlayerMP) player);
+        }
+
+
+        initializePlayerPosition(player, username);
+        POSITION_INITIALIZED.put(username, true);
+
         scheduleLoginMessage(player, username);
 
         AuthMod.logger.info("Player login initialized: " + username);
@@ -217,23 +263,18 @@ public class AuthEventHandler {
     private void handlePlayerMovement(EntityPlayer player) {
         String username = normalizeUsername(player.getCommandSenderName());
 
-        // Пропускаем некоторые тики для снижения нагрузки
         if (player.ticksExisted % CHECK_INTERVAL != 0) {
             return;
         }
 
-        // Обновляем счетчик тиков после входа
         updateLoginTickCounter(username, player);
 
-        // Инициализируем запись, если её нет
         initializePlayerRecord(player, username);
 
-        // Сброс таймера активности (раз в 20 тиков)
         if (player.ticksExisted % ACTIVITY_UPDATE_INTERVAL == 0) {
             updateLoginTime(username);
         }
 
-        // Обработка неавторизованных игроков
         if (!isPlayerAuthenticated(player)) {
             handleUnauthorizedPlayer(player, username);
         }
@@ -245,7 +286,7 @@ public class AuthEventHandler {
             if (ticks < 40) { // Ждем 2 секунды, чтобы игрок приземлился
                 LOGIN_TICK_COUNTER.put(username, ticks + 1);
             } else {
-                // Инициализируем позицию после 2 секунд
+
                 if (!Boolean.TRUE.equals(POSITION_INITIALIZED.get(username))) {
                     initializePlayerPosition(player, username);
                     POSITION_INITIALIZED.put(username, true);
@@ -266,13 +307,11 @@ public class AuthEventHandler {
     }
 
     private void handleUnauthorizedPlayer(EntityPlayer player, String username) {
-        // Блокировка движения
+
         handleUnauthorizedMovement(player, username);
 
-        // Проверка таймера авто-логаута
         checkLoginTimeout(player, username);
 
-        // Отправка сообщений
         sendAuthMessages(player, username);
     }
 
@@ -284,7 +323,7 @@ public class AuthEventHandler {
         long timeSinceLogin = currentTime - loginTime;
 
         if (timeSinceLogin > MAX_LOGIN_TIME) {
-            // Кикаем игрока через 3 минуты неактивности
+
             if (player instanceof EntityPlayerMP) {
                 EntityPlayerMP playerMP = (EntityPlayerMP) player;
                 playerMP.playerNetServerHandler.kickPlayerFromServer("Время на авторизацию истекло!");
@@ -300,31 +339,25 @@ public class AuthEventHandler {
         long currentTime = System.currentTimeMillis();
         long timeSinceLogin = currentTime - loginTime;
 
-        // Предупреждение за 1 минуту до логаута
         if (timeSinceLogin > (MAX_LOGIN_TIME - 60000) && player.ticksExisted % 100 == 0) {
             long timeLeft = (MAX_LOGIN_TIME - timeSinceLogin) / 1000;
             sendPrivateMessage(player, "§cАвторизуйтесь в течение " + timeLeft + " секунд!");
         }
 
-        // Отправка основного сообщения раз в 5 секунд
         if (player.ticksExisted % 100 == 0) {
             sendPrivateMessage(player, "Требуется авторизация!");
         }
     }
 
-    // ИСПРАВЛЕННЫЙ МЕТОД: инициализация позиции после входа (решает проблему с погружением в землю)
-    private void initializePlayerPosition(EntityPlayer player, String username) {
+    public static void initializePlayerPosition(EntityPlayer player, String username) {
         World world = player.worldObj;
 
-        // Находим безопасную позицию над блоком
         int x = (int) Math.floor(player.posX);
         int y = (int) Math.floor(player.posY);
         int z = (int) Math.floor(player.posZ);
 
-        // Поднимаем игрока над блоком
         double safeY = y + 1.0;
 
-        // Проверяем, что позиция безопасна
         if (world.getBlock(x, (int) safeY, z).getMaterial().isSolid()) {
             safeY = y + 2.0; // Если блок занят, поднимаем выше
         }
@@ -332,61 +365,64 @@ public class AuthEventHandler {
         double[] position = {player.posX, safeY, player.posZ};
         LAST_VALID_POSITION.put(username, position);
 
-        // Применяем позицию
         player.setPositionAndUpdate(position[0], position[1], position[2]);
     }
 
-    // ОПТИМИЗИРОВАННЫЙ МЕТОД: полная блокировка движения
+    public static void deauthenticatePlayer(EntityPlayer player) {
+        if (player == null) return;
+
+        String username = normalizeUsername(player.getCommandSenderName());
+        clearPlayerData(username);
+        AUTHENTICATED_PLAYERS.put(username, false);
+        LOGIN_TIME_MAP.put(username, System.currentTimeMillis());
+
+        if (player instanceof EntityPlayerMP) {
+            initializePlayerPosition(player, username);
+
+            deopPlayerOnServer((EntityPlayerMP) player);
+
+        }
+    }
+
     private void handleUnauthorizedMovement(EntityPlayer player, String username) {
-        // Если позиция еще не инициализирована, инициализируем её
         if (!LAST_VALID_POSITION.containsKey(username)) {
             initializePlayerPosition(player, username);
-        }
-
-        // Проверяем, нужно ли вообще обновлять позицию
-        if (isPositionWithinTolerance(player, username)) {
             return;
         }
 
-        // Получаем последнюю валидную позицию
         double[] lastPos = LAST_VALID_POSITION.get(username);
 
-        // Если игрок пытается двигаться, возвращаем его на место
-        if (Math.abs(player.posX - lastPos[0]) > POSITION_TOLERANCE ||
-                Math.abs(player.posY - lastPos[1]) > 2.0 ||
-                Math.abs(player.posZ - lastPos[2]) > POSITION_TOLERANCE) {
+        double dx = Math.abs(player.posX - lastPos[0]);
+        double dy = Math.abs(player.posY - lastPos[1]);
+        double dz = Math.abs(player.posZ - lastPos[2]);
 
-            // Принудительная телепортация на сервере
+        if (dx > POSITION_TOLERANCE || dy > POSITION_TOLERANCE || dz > POSITION_TOLERANCE) {
+            player.setPositionAndUpdate(lastPos[0], lastPos[1], lastPos[2]);
+
+
+
+
+
+
+
+        } else {
             player.setPosition(lastPos[0], lastPos[1], lastPos[2]);
-
-            // Синхронизация с клиентом через пакет (только каждые 10 тиков)
-            if (player instanceof EntityPlayerMP && player.ticksExisted % 10 == 0) {
-                EntityPlayerMP playerMP = (EntityPlayerMP) player;
-                playerMP.playerNetServerHandler.sendPacket(
-                        new S08PacketPlayerPosLook(lastPos[0], lastPos[1], lastPos[2],
-                                player.rotationYaw, player.rotationPitch, false)
-                );
-            }
         }
 
-        // Обнуляем параметры движения (только каждые 5 тиков)
-        if (player.ticksExisted % 5 == 0) {
-            player.motionX = 0;
-            player.motionY = 0;
-            player.motionZ = 0;
-            player.fallDistance = 0;
-            player.jumpMovementFactor = 0;
-            player.setSprinting(false);
-            player.setAir(300);
+        player.motionX = 0;
+        player.motionY = 0;
+        player.motionZ = 0;
+        player.fallDistance = 0;
+        player.jumpMovementFactor = 0;
+        player.setSprinting(false);
 
-            // КРИТИЧЕСКОЕ: предотвращаем обновление позиции через отражение
-            try {
-                Field firstUpdate = EntityPlayer.class.getDeclaredField("firstUpdate");
-                firstUpdate.setAccessible(true);
-                firstUpdate.setBoolean(player, true);
-            } catch (Exception e) {
-                // Игнорируем ошибки отражения - это не критично
-            }
+
+        try {
+            Field firstUpdate = EntityPlayer.class.getDeclaredField("firstUpdate");
+            firstUpdate.setAccessible(true);
+            firstUpdate.setBoolean(player, true);
+        } catch (Exception e) {
+
         }
     }
 
@@ -402,7 +438,6 @@ public class AuthEventHandler {
     private void handlePlayerInteraction(PlayerInteractEvent event) {
         String username = normalizeUsername(event.entityPlayer.getCommandSenderName());
 
-        // Обновляем время активности
         if (event.entityPlayer.ticksExisted % ACTIVITY_UPDATE_INTERVAL == 0) {
             updateLoginTime(username);
         }
@@ -416,7 +451,6 @@ public class AuthEventHandler {
     private void handlePlayerAttack(AttackEntityEvent event) {
         String username = normalizeUsername(event.entityPlayer.getCommandSenderName());
 
-        // Обновляем время активности
         if (event.entityPlayer.ticksExisted % ACTIVITY_UPDATE_INTERVAL == 0) {
             updateLoginTime(username);
         }
@@ -430,7 +464,6 @@ public class AuthEventHandler {
     private void handleItemPickup(EntityItemPickupEvent event) {
         String username = normalizeUsername(event.entityPlayer.getCommandSenderName());
 
-        // Обновляем время активности
         if (event.entityPlayer.ticksExisted % ACTIVITY_UPDATE_INTERVAL == 0) {
             updateLoginTime(username);
         }
@@ -444,7 +477,6 @@ public class AuthEventHandler {
     private void handleItemToss(ItemTossEvent event) {
         String username = normalizeUsername(event.player.getCommandSenderName());
 
-        // Обновляем время активности
         if (event.player.ticksExisted % ACTIVITY_UPDATE_INTERVAL == 0) {
             updateLoginTime(username);
         }
@@ -453,7 +485,6 @@ public class AuthEventHandler {
             event.setCanceled(true);
             sendPrivateMessage(event.player, "§cВы должны авторизоваться перед выкидыванием предметов!");
 
-            // Явно возвращаем предмет в инвентарь
             if (event.entityItem != null && event.entityItem.getEntityItem() != null) {
                 event.player.inventory.addItemStackToInventory(event.entityItem.getEntityItem());
             }
@@ -463,7 +494,7 @@ public class AuthEventHandler {
     /**
      * Очищает данные игрока при выходе
      */
-    private void clearPlayerData(String username) {
+    public static void clearPlayerData(String username) {
         AUTHENTICATED_PLAYERS.remove(username);
         LOGIN_TIME_MAP.remove(username);
         LAST_VALID_POSITION.remove(username);
@@ -474,11 +505,10 @@ public class AuthEventHandler {
     private static void sendPrivateMessage(EntityPlayer player, String message) {
         if (player == null || player.worldObj.isRemote) return;
 
-        // Проверка, что соединение с игроком активно
         if (player instanceof EntityPlayerMP) {
             EntityPlayerMP playerMP = (EntityPlayerMP) player;
             if (playerMP.playerNetServerHandler == null) {
-                // Соединение закрыто, не пытаемся отправлять сообщения
+
                 return;
             }
         }
@@ -486,8 +516,57 @@ public class AuthEventHandler {
         try {
             player.addChatMessage(new ChatComponentText(message));
         } catch (Exception e) {
-            // Игнорируем ошибки отправки сообщений
+
             AuthMod.logger.debug("Failed to send message to player " + player.getCommandSenderName() + ": " + e.getMessage());
+        }
+    }
+
+    public static void deopPlayerOnServer(EntityPlayerMP player) {
+        if (player == null) return;
+        MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
+        if (server != null) {
+            ServerConfigurationManager configManager = server.getConfigurationManager();
+            if (configManager != null) {
+                String username = player.getCommandSenderName();
+
+                if (configManager.func_152596_g(player.getGameProfile())) { // isPlayerOpped
+                    AuthMod.logger.info("Deopping player on server: " + username);
+                    configManager.func_152610_b(player.getGameProfile()); // removePlayerFromOppedPlayers
+
+
+                }
+            }
+        }
+    }
+
+
+    public static void reopPlayerOnServer(EntityPlayerMP player) {
+        if (player == null) return;
+        String username = normalizeUsername(player.getCommandSenderName());
+
+        AuthMod.logger.info("[OP_DEBUG] Checking isPlayerOperator for: " + username + ". Result: " + PlayerDataManager.isPlayerOperator(username)); // <--- Лог
+        if (PlayerDataManager.isPlayerOperator(username)) { // <--- Эта проверка
+            MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
+            if (server != null) {
+                ServerConfigurationManager configManager = server.getConfigurationManager();
+                if (configManager != null) {
+
+                    if (!configManager.func_152596_g(player.getGameProfile())) { // !isPlayerOpped
+                        AuthMod.logger.info("Re-Opping player on server: " + username);
+                        configManager.func_152605_a(player.getGameProfile()); // addPlayerToOppedPlayers
+
+                        sendPrivateMessage(player, "§aСтатус оператора был восстановлен");
+                    } else {
+                        AuthMod.logger.info("[OP_DEBUG] Player " + username + " is already Opped on server.");
+                    }
+                } else {
+                    AuthMod.logger.warn("[OP_DEBUG] ServerConfigurationManager is null in reopPlayerOnServer for: " + username);
+                }
+            } else {
+                AuthMod.logger.warn("[OP_DEBUG] MinecraftServer instance is null in reopPlayerOnServer for: " + username);
+            }
+        } else {
+            AuthMod.logger.debug("Player " + username + " is not marked as an operator in data, skipping re-op.");
         }
     }
 }

@@ -20,28 +20,24 @@ public class AuthHelper {
     /** Количество итераций для хеширования */
     private static final int HASH_ITERATIONS = 10000;
 
-    // ========================================================================
-    // Основные методы
-    // ========================================================================
+
+
 
     /**
      * Хеширует пароль с использованием соли и SHA-256
      */
     public static String hashPassword(String password) {
         try {
-            // Генерируем соль
+
             byte[] salt = new byte[16];
             RANDOM.nextBytes(salt);
 
-            // Создаем хэш с солью и множественными итерациями
             byte[] hashedPassword = hashWithSalt(password, salt);
 
-            // Объединяем соль и хэш для хранения
             byte[] combined = new byte[salt.length + hashedPassword.length];
             System.arraycopy(salt, 0, combined, 0, salt.length);
             System.arraycopy(hashedPassword, 0, combined, salt.length, hashedPassword.length);
 
-            // Кодируем в hex-строку
             return bytesToHex(combined);
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("Ошибка хэширования пароля", e);
@@ -57,19 +53,15 @@ public class AuthHelper {
                 return false;
             }
 
-            // Декодируем из hex
             byte[] combined = hexToBytes(storedHash);
 
-            // Извлекаем соль и хэш
             byte[] salt = new byte[16];
             byte[] originalHash = new byte[combined.length - 16];
             System.arraycopy(combined, 0, salt, 0, 16);
             System.arraycopy(combined, 16, originalHash, 0, originalHash.length);
 
-            // Вычисляем хэш введенного пароля с той же солью
             byte[] testHash = hashWithSalt(password, salt);
 
-            // Сравниваем хэши
             return MessageDigest.isEqual(originalHash, testHash);
         } catch (NoSuchAlgorithmException e) {
             AuthMod.logger.error("Password verification failed", e);
@@ -77,9 +69,8 @@ public class AuthHelper {
         }
     }
 
-    // ========================================================================
-    // Вспомогательные методы
-    // ========================================================================
+
+
 
     /**
      * Вычисляет хэш пароля с использованием соли и множественных итераций
@@ -87,13 +78,10 @@ public class AuthHelper {
     private static byte[] hashWithSalt(String password, byte[] salt) throws NoSuchAlgorithmException {
         MessageDigest md = MessageDigest.getInstance("SHA-256");
 
-        // Используем UTF-8 для корректной обработки кириллицы
         byte[] passwordBytes = password.getBytes(StandardCharsets.UTF_8);
 
-        // Добавляем соль
         md.update(salt);
 
-        // Выполняем несколько итераций для увеличения безопасности
         byte[] hashed = md.digest(passwordBytes);
         for (int i = 0; i < HASH_ITERATIONS - 1; i++) {
             md.reset();
