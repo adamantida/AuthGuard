@@ -81,34 +81,30 @@ public class AuthCommand extends CommandBase {
      * Обрабатывает действие регистрации или входа
      */
     private void processAuthAction(EntityPlayer player, String username, String[] args) {
-        String action = args[0].toLowerCase();
-        String[] newArgs = args;
-
-        // Обработка коротких алиасов
-        if (action.equals("l")) {
-            action = "login";
-            newArgs = Arrays.copyOfRange(args, 1, args.length);
-        } else if (action.equals("r")) {
-            action = "register";
-            newArgs = Arrays.copyOfRange(args, 1, args.length);
-        } else if (action.equals("out")) {
-            action = "logout";
-            newArgs = Arrays.copyOfRange(args, 1, args.length);
+        if (args.length < 1) {
+            sendUsageMessage(player);
+            return;
         }
 
+        String action = args[0].toLowerCase();
+
+        // Обработка коротких алиасов
         try {
             switch (action) {
                 case "register":
-                    handleRegistration(player, username, newArgs);
+                case "r":
+                    handleRegistration(player, username, Arrays.copyOfRange(args, 1, args.length));
                     break;
                 case "login":
-                    handleLogin(player, username, newArgs);
+                case "l":
+                    handleLogin(player, username, Arrays.copyOfRange(args, 1, args.length));
                     break;
                 case "logout":
+                case "out":
                     handleLogout(player, username);
                     break;
                 case "changepassword":
-                    handleChangePassword(player, username, newArgs);
+                    handleChangePassword(player, username, Arrays.copyOfRange(args, 1, args.length));
                     break;
                 case "admin":
                     handleAdminCommand(player, username, Arrays.copyOfRange(args, 1, args.length));
@@ -275,7 +271,12 @@ public class AuthCommand extends CommandBase {
                 handleAdminReset(player, args[1]);
                 break;
             case "list":
-                handleAdminList(player, args.length > 1 ? args[1] : "all");
+                // Передаем все оставшиеся аргументы как фильтр
+                String filter = "all";
+                if (args.length > 1) {
+                    filter = args[1].toLowerCase();
+                }
+                handleAdminList(player, filter, 1); // По умолчанию первая страница
                 break;
             case "ip":
                 if (args.length < 2) {
@@ -413,7 +414,7 @@ public class AuthCommand extends CommandBase {
         sendMessage(player, message);
     }
 
-    private void handleAdminList(EntityPlayer player, String filter) {
+    private void handleAdminList(EntityPlayer player, String filter, int page) {
         List<PlayerData> players = PlayerDataManager.getAllPlayers();
 
         // Применяем фильтр
@@ -425,29 +426,19 @@ public class AuthCommand extends CommandBase {
 
         switch (filter.toLowerCase()) {
             case "banned":
-                players = players.stream()
-                        .filter(PlayerData::isBanned)
-                        .collect(Collectors.toList());
+                players = players.stream().filter(PlayerData::isBanned).collect(Collectors.toList());
                 break;
             case "5min":
-                players = players.stream()
-                        .filter(p -> p.getRegistrationDate() >= fiveMinutesAgo)
-                        .collect(Collectors.toList());
+                players = players.stream().filter(p -> p.getRegistrationDate() >= fiveMinutesAgo).collect(Collectors.toList());
                 break;
             case "15min":
-                players = players.stream()
-                        .filter(p -> p.getRegistrationDate() >= fifteenMinutesAgo)
-                        .collect(Collectors.toList());
+                players = players.stream().filter(p -> p.getRegistrationDate() >= fifteenMinutesAgo).collect(Collectors.toList());
                 break;
             case "30min":
-                players = players.stream()
-                        .filter(p -> p.getRegistrationDate() >= thirtyMinutesAgo)
-                        .collect(Collectors.toList());
+                players = players.stream().filter(p -> p.getRegistrationDate() >= thirtyMinutesAgo).collect(Collectors.toList());
                 break;
             case "60min":
-                players = players.stream()
-                        .filter(p -> p.getRegistrationDate() >= sixtyMinutesAgo)
-                        .collect(Collectors.toList());
+                players = players.stream().filter(p -> p.getRegistrationDate() >= sixtyMinutesAgo).collect(Collectors.toList());
                 break;
             default:
                 // Все игроки (без фильтрации)
@@ -459,23 +450,79 @@ public class AuthCommand extends CommandBase {
             return;
         }
 
+        // Пагинация
+        final int pageSize = 10;
+        int totalPages = (players.size() + pageSize - 1) / pageSize;
+
+        // Корректировка номера страницы
+        if (page < 1) page = 1;
+        if (page > totalPages) page = totalPages;
+
+        int start = (page - 1) * pageSize;
+        int end = Math.min(start + pageSize, players.size());
+
+        List<PlayerData> pageData = players.subList(start, end);
+
         // Отправка заголовка с интерактивными кнопками
-        sendAdminListHeader(player);
+        sendAdminListHeader(player, filter, page, totalPages);
 
         // Отправка данных игроков
-        for (PlayerData data : players) {
+        for (PlayerData data : pageData) {
             String banStatus = data.isBanned() ? "§cЗАБАНЕН" : "§aАКТИВЕН";
             String message = String.format("§e%s §7| §bПосл. IP: %s §7| §bРег. IP: %s §7| §eСтатус: %s",
                     data.getUsername(), data.getLastLoginIP(), data.getRegistrationIP(), banStatus);
-
             sendMessage(player, message);
         }
 
-        sendMessage(player, String.format("§6Найдено игроков: §e%d", players.size()));
+        sendMessage(player, String.format("§6Страница %d/%d (Найдено: %d)", page, totalPages, players.size()));
     }
 
-    private void sendAdminListHeader(EntityPlayer player) {
-        // Создаем интерактивные кнопки для фильтрации
+    private List<PlayerData> applyFilter(List<PlayerData> players, String filter) {
+        long currentTime = System.currentTimeMillis();
+        long fiveMinutesAgo = currentTime - 5 * 60 * 1000;
+
+        switch (filter) {
+            case "banned":
+                return players.stream().filter(PlayerData::isBanned).collect(Collectors.toList());
+            case "5min":
+                return players.stream().filter(p -> p.getRegistrationDate() >= fiveMinutesAgo).collect(Collectors.toList());
+            default:
+                return players; // Все игроки
+        }
+    }
+
+    private void sendPaginationControls(EntityPlayer player, int currentPage, int totalPages, String filter) {
+        IChatComponent controls = new ChatComponentText("§6Навигация: ");
+
+        // Кнопка "Предыдущая"
+        if (currentPage > 1) {
+            ChatComponentText prevBtn = new ChatComponentText("[←] ");
+            prevBtn.setChatStyle(new ChatStyle()
+                    .setColor(EnumChatFormatting.YELLOW)
+                    .setChatClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND,
+                            String.format("/auth admin list %s %d", filter, currentPage - 1))));
+            controls.appendSibling(prevBtn);
+        }
+
+        // Текущая страница
+        ChatComponentText currentPageText = new ChatComponentText(String.format("[%d/%d] ", currentPage, totalPages));
+        currentPageText.setChatStyle(new ChatStyle().setColor(EnumChatFormatting.GREEN));
+        controls.appendSibling(currentPageText);
+
+        // Кнопка "Следующая"
+        if (currentPage < totalPages) {
+            ChatComponentText nextBtn = new ChatComponentText("[→]");
+            nextBtn.setChatStyle(new ChatStyle()
+                    .setColor(EnumChatFormatting.YELLOW)
+                    .setChatClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND,
+                            String.format("/auth admin list %s %d", filter, currentPage + 1))));
+            controls.appendSibling(nextBtn);
+        }
+
+        player.addChatMessage(controls);
+    }
+
+    private void sendAdminListHeader(EntityPlayer player, String filter, int currentPage, int totalPages) {
         IChatComponent header = new ChatComponentText("§6Список игроков | Фильтры: ");
 
         // Кнопка "Все"
@@ -511,6 +558,34 @@ public class AuthCommand extends CommandBase {
                 .setColor(EnumChatFormatting.YELLOW)
                 .setChatClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/auth admin list 60min")));
 
+        // Навигация по страницам
+        IChatComponent navigation = new ChatComponentText(" §7| Страницы: ");
+
+        // Кнопка "Предыдущая"
+        if (currentPage > 1) {
+            ChatComponentText prevBtn = new ChatComponentText("[←] ");
+            prevBtn.setChatStyle(new ChatStyle()
+                    .setColor(EnumChatFormatting.YELLOW)
+                    .setChatClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND,
+                            String.format("/auth admin list %s %d", filter, currentPage - 1))));
+            navigation.appendSibling(prevBtn);
+        }
+
+        // Текущая страница
+        ChatComponentText currentPageText = new ChatComponentText(String.format("[%d/%d] ", currentPage, totalPages));
+        currentPageText.setChatStyle(new ChatStyle().setColor(EnumChatFormatting.GREEN));
+        navigation.appendSibling(currentPageText);
+
+        // Кнопка "Следующая"
+        if (currentPage < totalPages) {
+            ChatComponentText nextBtn = new ChatComponentText("[→]");
+            nextBtn.setChatStyle(new ChatStyle()
+                    .setColor(EnumChatFormatting.YELLOW)
+                    .setChatClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND,
+                            String.format("/auth admin list %s %d", filter, currentPage + 1))));
+            navigation.appendSibling(nextBtn);
+        }
+
         // Добавляем все компоненты к заголовку
         header.appendSibling(allBtn);
         header.appendSibling(bannedBtn);
@@ -518,6 +593,7 @@ public class AuthCommand extends CommandBase {
         header.appendSibling(last15min);
         header.appendSibling(last30min);
         header.appendSibling(last60min);
+        header.appendSibling(navigation);
 
         player.addChatMessage(header);
     }

@@ -140,16 +140,32 @@ public class PlayerDataManager {
             PlayerData newData = new PlayerData(
                     oldData.getUsername(),
                     hashedPassword,
-                    oldData.getRegistrationDate()
+                    oldData.getRegistrationDate(),
+                    oldData.getRegistrationIP(),
+                    oldData.getLastLoginIP(),
+                    oldData.isBanned()
             );
-
             PLAYER_DATA_MAP.put(username.toLowerCase(), newData);
             scheduleSave();
             return true;
         }
         return false;
     }
-
+    public static void setPlayerBanned(String username, boolean banned) {
+        PlayerData oldData = PLAYER_DATA_MAP.get(username.toLowerCase());
+        if (oldData != null) {
+            PlayerData newData = new PlayerData(
+                    oldData.getUsername(),
+                    oldData.getHashedPassword(),
+                    oldData.getRegistrationDate(),
+                    oldData.getRegistrationIP(),
+                    oldData.getLastLoginIP(),
+                    banned
+            );
+            PLAYER_DATA_MAP.put(username.toLowerCase(), newData);
+            scheduleSave();
+        }
+    }
     /**
      * Получает список всех игроков
      */
@@ -240,5 +256,8 @@ public class PlayerDataManager {
         } catch (IOException e) {
             AuthMod.logger.error("Failed to save player data", e);
         }
+    }
+    public static List<String> getAllPlayerNames() {
+        return new ArrayList<>(PLAYER_DATA_MAP.keySet());
     }
 }

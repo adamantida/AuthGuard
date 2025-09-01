@@ -205,6 +205,10 @@ public class AuthEventHandler {
         LOGIN_TICK_COUNTER.put(username, 0);
         POSITION_INITIALIZED.put(username, false);
 
+        // Немедленно инициализируем позицию
+        initializePlayerPosition(player, username);
+        POSITION_INITIALIZED.put(username, true);
+
         // Отправка сообщения с задержкой
         scheduleLoginMessage(player, username);
 
@@ -373,55 +377,42 @@ public class AuthEventHandler {
 
     // ОПТИМИЗИРОВАННЫЙ МЕТОД: полная блокировка движения
     private void handleUnauthorizedMovement(EntityPlayer player, String username) {
-        // Если позиция еще не инициализирована, инициализируем её
+        // Если позиция еще не инициализирована, инициализируем её немедленно
         if (!LAST_VALID_POSITION.containsKey(username)) {
             initializePlayerPosition(player, username);
-        }
-
-        // Проверяем, нужно ли вообще обновлять позицию
-        if (isPositionWithinTolerance(player, username)) {
-            return;
         }
 
         // Получаем последнюю валидную позицию
         double[] lastPos = LAST_VALID_POSITION.get(username);
 
-        // Если игрок пытается двигаться, возвращаем его на место
-        if (Math.abs(player.posX - lastPos[0]) > POSITION_TOLERANCE ||
-                Math.abs(player.posY - lastPos[1]) > 2.0 ||
-                Math.abs(player.posZ - lastPos[2]) > POSITION_TOLERANCE) {
+        // Принудительная телепортация на сервере
+        player.setPosition(lastPos[0], lastPos[1], lastPos[2]);
 
-            // Принудительная телепортация на сервере
-            player.setPosition(lastPos[0], lastPos[1], lastPos[2]);
-
-            // Синхронизация с клиентом через пакет (только каждые 10 тиков)
-            if (player instanceof EntityPlayerMP && player.ticksExisted % 10 == 0) {
-                EntityPlayerMP playerMP = (EntityPlayerMP) player;
-                playerMP.playerNetServerHandler.sendPacket(
-                        new S08PacketPlayerPosLook(lastPos[0], lastPos[1], lastPos[2],
-                                player.rotationYaw, player.rotationPitch, false)
-                );
-            }
+        // Синхронизация с клиентом через пакет (каждые 5 тиков)
+        if (player instanceof EntityPlayerMP && player.ticksExisted % 5 == 0) {
+            EntityPlayerMP playerMP = (EntityPlayerMP) player;
+            playerMP.playerNetServerHandler.sendPacket(
+                    new S08PacketPlayerPosLook(lastPos[0], lastPos[1], lastPos[2],
+                            player.rotationYaw, player.rotationPitch, false)
+            );
         }
 
-        // Обнуляем параметры движения (только каждые 5 тиков)
-        if (player.ticksExisted % 5 == 0) {
-            player.motionX = 0;
-            player.motionY = 0;
-            player.motionZ = 0;
-            player.fallDistance = 0;
-            player.jumpMovementFactor = 0;
-            player.setSprinting(false);
-            player.setAir(300);
+        // Обнуляем параметры движения
+        player.motionX = 0;
+        player.motionY = 0;
+        player.motionZ = 0;
+        player.fallDistance = 0;
+        player.jumpMovementFactor = 0;
+        player.setSprinting(false);
+        player.setAir(300);
 
-            // КРИТИЧЕСКОЕ: предотвращаем обновление позиции через отражение
-            try {
-                Field firstUpdate = EntityPlayer.class.getDeclaredField("firstUpdate");
-                firstUpdate.setAccessible(true);
-                firstUpdate.setBoolean(player, true);
-            } catch (Exception e) {
-                // Игнорируем ошибки отражения - это не критично
-            }
+        // КРИТИЧЕСКОЕ: предотвращаем обновление позиции через отражение
+        try {
+            Field firstUpdate = EntityPlayer.class.getDeclaredField("firstUpdate");
+            firstUpdate.setAccessible(true);
+            firstUpdate.setBoolean(player, true);
+        } catch (Exception e) {
+            // Игнорируем ошибки отражения - это не критично
         }
     }
 
