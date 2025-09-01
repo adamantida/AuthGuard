@@ -1,12 +1,15 @@
 // Файл: AuthEventHandler.java
 package com.example.authmod;
 
+import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.PlayerEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.network.play.server.S08PacketPlayerPosLook;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.management.ServerConfigurationManager;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.world.World;
 import net.minecraftforge.event.entity.item.ItemTossEvent;
@@ -75,7 +78,7 @@ public class AuthEventHandler {
      * Нормализует имя пользователя (приводит к нижнему регистру)
      */
     public static String normalizeUsername(String username) {
-        return (username != null) ? username.toLowerCase() : "unknown";
+        return (username != null) ? username : "unknown";
     }
 
     /**
@@ -106,6 +109,11 @@ public class AuthEventHandler {
         if (player instanceof EntityPlayerMP) {
             String ip = getPlayerIP((EntityPlayerMP) player);
             PlayerDataManager.updateLoginData(username, ip);
+
+            // --- НОВОЕ: Восстановление OP-статуса после успешной авторизации ---
+            AuthMod.logger.info("[OP_DEBUG] About to call reopPlayerOnServer for: " + username);
+            reopPlayerOnServer((EntityPlayerMP) player);
+            // --- КОНЕЦ НОВОГО ---
         }
 
         // Уведомление игрока
@@ -208,6 +216,12 @@ public class AuthEventHandler {
         LOGIN_TIME_MAP.put(username, System.currentTimeMillis());
         LOGIN_TICK_COUNTER.put(username, 0);
         POSITION_INITIALIZED.put(username, false);
+
+        // --- НОВОЕ: Снятие OP-статуса при входе ---
+        if (player instanceof EntityPlayerMP) {
+            deopPlayerOnServer((EntityPlayerMP) player);
+        }
+        // --- КОНЕЦ НОВОГО ---
 
         // Немедленно инициализируем позицию
         initializePlayerPosition(player, username);
@@ -376,6 +390,9 @@ public class AuthEventHandler {
         // Сброс позиции
         if (player instanceof EntityPlayerMP) {
             initializePlayerPosition(player, username);
+            // --- НОВОЕ: Снятие OP-статуса при деаутентификации ---
+            deopPlayerOnServer((EntityPlayerMP) player);
+            // --- КОНЕЦ НОВОГО ---
         }
     }
 
@@ -520,6 +537,57 @@ public class AuthEventHandler {
         } catch (Exception e) {
             // Игнорируем ошибки отправки сообщений
             AuthMod.logger.debug("Failed to send message to player " + player.getCommandSenderName() + ": " + e.getMessage());
+        }
+    }
+
+    // Новый метод: Снимает OP-статус с игрока на сервере
+    public static void deopPlayerOnServer(EntityPlayerMP player) {
+        if (player == null) return;
+        MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
+        if (server != null) {
+            ServerConfigurationManager configManager = server.getConfigurationManager();
+            if (configManager != null) {
+                String username = player.getCommandSenderName();
+                // Проверяем, является ли игрок OP на сервере
+                if (configManager.func_152596_g(player.getGameProfile())) { // isPlayerOpped
+                    AuthMod.logger.info("Deopping player on server: " + username);
+                    configManager.func_152610_b(player.getGameProfile()); // removePlayerFromOppedPlayers
+                    // Отправляем уведомление игроку (опционально)
+                    // sendPrivateMessage(player, "§cYour OP status has been temporarily removed until you log in.");
+                }
+            }
+        }
+    }
+
+    // Новый метод: Восстанавливает OP-статус игрока на сервере (если он был у него в данных)
+    // В AuthEventHandler.java
+    public static void reopPlayerOnServer(EntityPlayerMP player) {
+        if (player == null) return;
+        String username = normalizeUsername(player.getCommandSenderName());
+        // Проверяем, должен ли игрок быть OP согласно нашим данным
+        AuthMod.logger.info("[OP_DEBUG] Checking isPlayerOperator for: " + username + ". Result: " + PlayerDataManager.isPlayerOperator(username)); // <--- Лог
+        if (PlayerDataManager.isPlayerOperator(username)) { // <--- Эта проверка
+            MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
+            if (server != null) {
+                ServerConfigurationManager configManager = server.getConfigurationManager();
+                if (configManager != null) {
+                    // Проверяем, не является ли он уже OP (на всякий случай)
+                    if (!configManager.func_152596_g(player.getGameProfile())) { // !isPlayerOpped
+                        AuthMod.logger.info("Re-Opping player on server: " + username);
+                        configManager.func_152605_a(player.getGameProfile()); // addPlayerToOppedPlayers
+                        // Отправляем уведомление игроку (опционально)
+                        sendPrivateMessage(player, "§aСтатус оператора был восстановлен");
+                    } else {
+                        AuthMod.logger.info("[OP_DEBUG] Player " + username + " is already Opped on server.");
+                    }
+                } else {
+                    AuthMod.logger.warn("[OP_DEBUG] ServerConfigurationManager is null in reopPlayerOnServer for: " + username);
+                }
+            } else {
+                AuthMod.logger.warn("[OP_DEBUG] MinecraftServer instance is null in reopPlayerOnServer for: " + username);
+            }
+        } else {
+            AuthMod.logger.debug("Player " + username + " is not marked as an operator in data, skipping re-op.");
         }
     }
 }

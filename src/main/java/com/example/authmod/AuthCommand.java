@@ -285,6 +285,17 @@ public class AuthCommand extends CommandBase {
                 }
                 handleAdminIP(player, args[1]);
                 break;
+            case "add":
+                if (args.length < 2) {
+                    sendAdminAddUsage(player);
+                    return;
+                }
+                handleAdminAddOp(player, args[1]); // args[1] - имя игрока
+                break;
+            // --- НОВОЕ: Обработка подкоманды 'reload' ---
+            case "reload":
+                handleAdminReload(player);
+                break;
             default:
                 sendAdminUsageMessage(player);
         }
@@ -373,8 +384,12 @@ public class AuthCommand extends CommandBase {
     private void sendAdminUsageMessage(EntityPlayer player) {
         sendMessage(player, "§6Админ-команды:");
         sendMessage(player, "§e/auth admin reset <игрок> §7- сбросить пароль");
-        sendMessage(player, "§e/auth admin list [all|banned|5min|15min|30min|60min] §7- список игроков");
         sendMessage(player, "§e/auth admin ip <игрок> §7- информация об IP");
+        // --- НОВОЕ: Добавляем новые команды в список ---
+        sendMessage(player, "§e/auth admin add <игрок> §7- добавить игрока в список операторов мода");
+        sendMessage(player, "§e/auth admin reload §7- перезагрузить данные мода из файла");
+        // --- КОНЕЦ НОВОГО ---
+        sendMessage(player, "§e/auth admin list [all|banned|5min|15min|30min|60min] §7- список игроков");
     }
 
     private void sendAdminResetUsage(EntityPlayer player) {
@@ -608,6 +623,84 @@ public class AuthCommand extends CommandBase {
             player.addChatMessage(new ChatComponentText(message));
         }
     }
+
+    private void handleAdminAddOp(EntityPlayer admin, String targetPlayerName) {
+        // Проверяем, существует ли игрок в данных мода
+        if (!PlayerDataManager.isPlayerRegistered(targetPlayerName)) {
+            // Игрок не зарегистрирован в моде. Можно либо запретить, либо создать минимальную запись.
+            // Для простоты, запретим.
+            sendCommandError(admin, "Игрок '" + targetPlayerName + "' не зарегистрирован в системе аутентификации.");
+            AuthMod.logger.warn("[ADMIN] Admin {} tried to add unregistered player '{}' as operator.", admin.getCommandSenderName(), targetPlayerName);
+            return;
+        }
+
+        // Проверяем, не является ли он уже оператором в данных мода
+        if (PlayerDataManager.isPlayerOperator(targetPlayerName)) {
+            sendCommandError(admin, "Игрок '" + targetPlayerName + "' уже является оператором в системе аутентификации.");
+            return;
+        }
+
+        // Обновляем статус оператора в данных мода
+        if (PlayerDataManager.updateOperatorStatus(targetPlayerName, true)) {
+            sendMessage(admin, "§aИгрок '" + targetPlayerName + "' успешно добавлен в список операторов системы аутентификации.");
+
+            // --- ДОПОЛНИТЕЛЬНО: Попытка выдать OP на сервере сразу, если игрок онлайн ---
+            // Это не обязательно, но удобно. OP будет восстановлен при следующем логине в любом случае.
+            EntityPlayerMP targetPlayerMP = getOnlinePlayerByName(targetPlayerName);
+            if (targetPlayerMP != null) {
+                AuthEventHandler.reopPlayerOnServer(targetPlayerMP); // Используем существующий метод
+                sendMessage(admin, "§aOP-статус также выдан игроку '" + targetPlayerName + "' на сервере (онлайн).");
+                AuthMod.logger.info("[ADMIN] Admin {} added player '{}' as operator (data updated, server OP granted).", admin.getCommandSenderName(), targetPlayerName);
+            } else {
+                AuthMod.logger.info("[ADMIN] Admin {} added player '{}' as operator (data updated).", admin.getCommandSenderName(), targetPlayerName);
+            }
+            // --- КОНЕЦ ДОПОЛНЕНИЯ ---
+
+        } else {
+            sendCommandError(admin, "Ошибка при добавлении игрока '" + targetPlayerName + "' в список операторов.");
+            AuthMod.logger.error("[ADMIN] Failed to add player '{}' as operator for admin {}.", targetPlayerName, admin.getCommandSenderName());
+        }
+    }
+    private void handleAdminReload(EntityPlayer admin) {
+        try {
+            PlayerDataManager.reloadData(); // Предполагаем, что такой метод будет добавлен в PlayerDataManager
+            sendMessage(admin, "§aДанные системы аутентификации успешно перезагружены из файла.");
+            AuthMod.logger.info("[ADMIN] Admin {} reloaded auth data.", admin.getCommandSenderName());
+        } catch (Exception e) {
+            sendCommandError(admin, "Ошибка при перезагрузке данных: " + e.getMessage());
+            AuthMod.logger.error("[ADMIN] Admin {} failed to reload auth data.", admin.getCommandSenderName(), e);
+        }
+    }
+// --- КОНЕЦ НОВОГО ---
+
+    // --- НОВОЕ: Вспомогательный метод для поиска онлайн-игрока по имени ---
+// Добавьте этот метод в класс AuthCommand
+    private EntityPlayerMP getOnlinePlayerByName(String username) {
+        // Получаем список всех онлайн-игроков
+        net.minecraft.server.MinecraftServer server = net.minecraft.server.MinecraftServer.getServer();
+        if (server != null) {
+            net.minecraft.server.management.ServerConfigurationManager configManager = server.getConfigurationManager();
+            if (configManager != null) {
+                // В 1.7.10 getPlayerList() возвращает Player[] или List
+                // Итерируемся по списку
+                for (Object playerObj : (java.lang.Iterable<?>) configManager.playerEntityList) {
+                    if (playerObj instanceof EntityPlayerMP) {
+                        EntityPlayerMP playerMP = (EntityPlayerMP) playerObj;
+                        if (playerMP.getCommandSenderName().equalsIgnoreCase(username)) {
+                            return playerMP;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+    private void sendAdminAddUsage(EntityPlayer player) {
+        sendMessage(player, "§cИспользование: /auth admin add <игрок>");
+    }
+
+    // Обновите sendAdminUsageMessage, чтобы включить новые команды:
+
 
     @Override
     public boolean canCommandSenderUseCommand(ICommandSender sender) {

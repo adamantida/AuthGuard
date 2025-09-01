@@ -79,7 +79,7 @@ public class BanStatusSyncer {
                             JsonElement nameElement = banEntry.get("name");
                             if (nameElement != null && nameElement.isJsonPrimitive()) {
                                 // Добавляем имя пользователя в нижнем регистре
-                                currentBannedUsernames.add(nameElement.getAsString().toLowerCase());
+                                currentBannedUsernames.add(nameElement.getAsString());
                             }
                         }
                     }
@@ -88,7 +88,7 @@ public class BanStatusSyncer {
                     JsonObject banObject = rootElement.getAsJsonObject();
                     for (String username : banObject.keySet()) {
                         // Добавляем имя пользователя в нижнем регистре
-                        currentBannedUsernames.add(username.toLowerCase());
+                        currentBannedUsernames.add(username);
                     }
                 } else {
                     AuthMod.logger.warn("[BanStatusSyncer] banned-players.json root element is neither an Object nor an Array. Assuming no players are banned.");
@@ -115,7 +115,7 @@ public class BanStatusSyncer {
         // Обновляем статус бана для всех зарегистрированных игроков
         for (String username : allPlayerNames) {
             // Проверяем вхождение в кэшированный набор забаненных имен (в нижнем регистре)
-            boolean isBanned = lastBannedUsernames.contains(username.toLowerCase());
+            boolean isBanned = lastBannedUsernames.contains(username);
             // AuthMod.logger.debug("[BanStatusSyncer] Player {} is banned: {}", username, isBanned); // Раскомментировать для отладки каждого игрока
             PlayerDataManager.setPlayerBanned(username, isBanned);
         }
