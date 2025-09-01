@@ -14,6 +14,7 @@ import net.minecraft.util.ChatComponentText;
 import net.minecraft.world.World;
 import net.minecraftforge.event.entity.item.ItemTossEvent;
 import net.minecraftforge.event.entity.living.LivingEvent;
+import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.event.entity.player.*;
 import java.lang.reflect.Field;
 import java.util.*;
@@ -201,6 +202,21 @@ public class AuthEventHandler {
     public void onItemToss(ItemTossEvent event) {
         if (event.player != null) {
             handleItemToss(event);
+        }
+    }
+
+    @SubscribeEvent
+    public void onPlayerHurt(LivingHurtEvent event) {
+        // Проверяем, является ли существо, получившая урон, игроком
+        if (event.entityLiving instanceof EntityPlayer) {
+            EntityPlayer player = (EntityPlayer) event.entityLiving;
+            // Проверяем, НЕ авторизован ли игрок
+            if (!isPlayerAuthenticated(player)) {
+                // Отменяем событие получения урона
+                event.setCanceled(true);
+                // Опционально: можно отправить сообщение игроку
+                //sendPrivateMessage(player, "§cВы не можете получать урон, пока не авторизуетесь!");
+            }
         }
     }
 
