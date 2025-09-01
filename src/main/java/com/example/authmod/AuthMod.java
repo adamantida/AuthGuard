@@ -19,16 +19,14 @@ public class AuthMod {
     /** Логгер для отладки и информации */
     public static Logger logger;
 
-    // ========================================================================
-    // Обработка событий мода
-    // ========================================================================
+
+
 
     @EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         logger = event.getModLog();
         PlayerDataManager.init(event.getModConfigurationDirectory());
 
-        // Регистрируем на ОБОИХ EventBus (ключевое для 1.7.10)
         FMLCommonHandler.instance().bus().register(new AuthEventHandler());
         FMLCommonHandler.instance().bus().register(new ChatEventHandler());
         FMLCommonHandler.instance().bus().register(new BanStatusSyncer());

@@ -25,9 +25,8 @@ public class PlayerData {
 
     private final boolean isOperator;
 
-    // ========================================================================
-    // Конструкторы и геттеры
-    // ========================================================================
+
+
 
     /**
      * Конструктор для создания нового объекта PlayerData.
@@ -41,14 +40,14 @@ public class PlayerData {
      * @param isOperator Статус оператора (новый параметр)
      */
     public PlayerData(String username, String hashedPassword, long registrationDate,
-                      String registrationIP, String lastLoginIP, boolean isBanned, boolean isOperator) { // Добавлен isOperator
+                      String registrationIP, String lastLoginIP, boolean isBanned, boolean isOperator) {
         this.username = username;
         this.hashedPassword = hashedPassword;
         this.registrationDate = registrationDate;
         this.registrationIP = registrationIP;
         this.lastLoginIP = lastLoginIP;
         this.isBanned = isBanned;
-        this.isOperator = isOperator; // Инициализация нового поля
+        this.isOperator = isOperator;
     }
 
     /**

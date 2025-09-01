@@ -1,4 +1,4 @@
-// Файл: BanStatusSyncer.java
+
 package com.example.authmod;
 
 import cpw.mods.fml.common.FMLCommonHandler;
@@ -45,7 +45,6 @@ public class BanStatusSyncer {
             return;
         }
 
-        // Получаем директорию, где лежат файлы сервера (обычно корневая папка сервера)
         File serverDir = server.getFile(""); // Получает корневую директорию сервера
         if (serverDir == null || !serverDir.exists()) {
             AuthMod.logger.error("[BanStatusSyncer] Could not determine server directory.");
@@ -61,41 +60,38 @@ public class BanStatusSyncer {
         }
 
         long currentModifiedTime = bannedPlayersFile.lastModified();
-        // Проверяем, изменился ли файл с момента последнего чтения
+
         if (currentModifiedTime != lastModifiedTime) {
             AuthMod.logger.debug("[BanStatusSyncer] banned-players.json has changed or is read for the first time. Reloading...");
             Set<String> currentBannedUsernames = new HashSet<>();
 
             try (FileReader reader = new FileReader(bannedPlayersFile)) {
-                // Парсим JSON
                 JsonElement rootElement = new JsonParser().parse(reader);
 
                 if (rootElement.isJsonArray()) {
-                    // Формат [{"name": "..."}, ...] - стандартный для списков банов
+
                     JsonArray banArray = rootElement.getAsJsonArray();
                     for (JsonElement element : banArray) {
                         if (element.isJsonObject()) {
                             JsonObject banEntry = element.getAsJsonObject();
                             JsonElement nameElement = banEntry.get("name");
                             if (nameElement != null && nameElement.isJsonPrimitive()) {
-                                // Добавляем имя пользователя в нижнем регистре
+
                                 currentBannedUsernames.add(nameElement.getAsString());
                             }
                         }
                     }
                 } else if (rootElement.isJsonObject()) {
-                    // Формат {"username": {...}} - старый формат или формат карты
+
                     JsonObject banObject = rootElement.getAsJsonObject();
                     for (String username : banObject.keySet()) {
-                        // Добавляем имя пользователя в нижнем регистре
+
                         currentBannedUsernames.add(username);
                     }
                 } else {
                     AuthMod.logger.warn("[BanStatusSyncer] banned-players.json root element is neither an Object nor an Array. Assuming no players are banned.");
                 }
 
-
-                // Обновляем кэш и время модификации
                 lastBannedUsernames = currentBannedUsernames;
                 lastModifiedTime = currentModifiedTime;
                 AuthMod.logger.info("[BanStatusSyncer] Successfully loaded {} banned players from file.", currentBannedUsernames.size());
@@ -106,17 +102,15 @@ public class BanStatusSyncer {
                 return; // Не продолжаем обработку, если не удалось прочитать
             }
         }
-        // Если файл не изменился, используем кэшированный список lastBannedUsernames
 
-        // Получаем список всех зарегистрированных игроков
+
         List<String> allPlayerNames = PlayerDataManager.getAllPlayerNames();
         AuthMod.logger.debug("[BanStatusSyncer] Checking ban status for {} registered players against {} loaded bans.", allPlayerNames.size(), lastBannedUsernames.size());
 
-        // Обновляем статус бана для всех зарегистрированных игроков
         for (String username : allPlayerNames) {
-            // Проверяем вхождение в кэшированный набор забаненных имен (в нижнем регистре)
+
             boolean isBanned = lastBannedUsernames.contains(username);
-            // AuthMod.logger.debug("[BanStatusSyncer] Player {} is banned: {}", username, isBanned); // Раскомментировать для отладки каждого игрока
+
             PlayerDataManager.setPlayerBanned(username, isBanned);
         }
     }
@@ -131,7 +125,7 @@ public class BanStatusSyncer {
         for (String username : allPlayerNames) {
             PlayerDataManager.setPlayerBanned(username, false);
         }
-        // Также сбрасываем кэш
+
         lastBannedUsernames.clear();
         lastModifiedTime = -1;
     }

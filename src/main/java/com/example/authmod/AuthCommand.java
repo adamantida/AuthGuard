@@ -23,10 +23,8 @@ public class AuthCommand extends CommandBase {
     /** Допустимые алиасы команды */
     private static final List<String> ALIASES = Arrays.asList("auth", "a");
 
-    // ========================================================================
-    // Основные методы команды
-    // ========================================================================
-
+    
+    
     @Override
     public String getCommandName() {
         return "auth";
@@ -42,13 +40,11 @@ public class AuthCommand extends CommandBase {
         return "/auth <register|login|logout|changepassword> <аргументы>";
     }
 
-    // ========================================================================
-    // Обработка команд
-    // ========================================================================
-
+    
+    
     @Override
     public void processCommand(ICommandSender sender, String[] args) {
-        // Проверка, что отправитель - игрок
+
         if (!(sender instanceof EntityPlayer)) {
             return;
         }
@@ -56,16 +52,16 @@ public class AuthCommand extends CommandBase {
         EntityPlayer player = (EntityPlayer) sender;
         String username = AuthEventHandler.normalizeUsername(player.getCommandSenderName());
 
-        // Сброс таймера активности
+        
         AuthEventHandler.updateLoginTime(username);
 
-        // Проверка аргументов
+        
         if (args.length < 1) {
             sendUsageMessage(player);
             return;
         }
 
-        // Обработка действия
+        
         processAuthAction(player, username, args);
     }
 
@@ -88,7 +84,7 @@ public class AuthCommand extends CommandBase {
 
         String action = args[0].toLowerCase();
 
-        // Обработка коротких алиасов
+        
         try {
             switch (action) {
                 case "register":
@@ -117,12 +113,11 @@ public class AuthCommand extends CommandBase {
         }
     }
 
-    // ========================================================================
-    // Обработка автодополнения Tab
-    // ========================================================================
+    
+    
     @Override
     public List<String> addTabCompletionOptions(ICommandSender sender, String[] args) {
-        // Предлагаем автодополнение только для первого аргумента
+        
         if (args.length == 1) {
             return getListOfStringsMatchingLastWord(args, "register", "login", "logout", "changepassword", "admin", "r", "l", "out");
         } else if (args.length == 2 && args[0].equalsIgnoreCase("admin")) {
@@ -133,36 +128,33 @@ public class AuthCommand extends CommandBase {
         return null;
     }
 
-    // ========================================================================
-    // Обработчики действий
-    // ========================================================================
-
+    
+    
     private void handleRegistration(EntityPlayer player, String username, String[] args) {
-        // Проверка наличия подтверждения пароля
+        
         if (args.length < 2) {
             sendPasswordConfirmationRequired(player);
             return;
         }
 
-        // Проверка, что игрок еще не зарегистрирован
         if (PlayerDataManager.isPlayerRegistered(username)) {
             sendAlreadyRegisteredMessage(player);
             return;
         }
 
-        // Проверка совпадения паролей
+        
         if (!doPasswordsMatch(args[0], args[1])) {
             sendPasswordsDoNotMatch(player);
             return;
         }
 
-        // Проверка длины пароля
+        
         if (isPasswordTooShort(args[0])) {
             sendPasswordTooShort(player);
             return;
         }
 
-        // Регистрация игрока
+        
         registerPlayer(player, username, args[0]);
     }
 
@@ -174,13 +166,12 @@ public class AuthCommand extends CommandBase {
 
         String password = args[0];
 
-        // Проверка, что игрок зарегистрирован
         if (!PlayerDataManager.isPlayerRegistered(username)) {
             sendNotRegisteredMessage(player);
             return;
         }
 
-        // Проверка пароля
+        
         if (AuthHelper.verifyPassword(password, PlayerDataManager.getPlayerHash(username))) {
             if (player instanceof EntityPlayerMP) {
                 String ip = AuthEventHandler.getPlayerIP((EntityPlayerMP) player);
@@ -199,7 +190,7 @@ public class AuthCommand extends CommandBase {
             return;
         }
 
-        // Используем публичный метод вместо прямого доступа к приватным полям
+        
         AuthEventHandler.deauthenticatePlayer(player);
 
         sendLogoutSuccessMessage(player);
@@ -220,13 +211,13 @@ public class AuthCommand extends CommandBase {
         String newPassword = args[1];
         String confirmPassword = args[2];
 
-        // Проверка старого пароля
+        
         if (!AuthHelper.verifyPassword(oldPassword, PlayerDataManager.getPlayerHash(username))) {
             sendIncorrectOldPasswordMessage(player);
             return;
         }
 
-        // Проверка нового пароля
+        
         if (!newPassword.equals(confirmPassword)) {
             sendPasswordsDoNotMatch(player);
             return;
@@ -237,7 +228,7 @@ public class AuthCommand extends CommandBase {
             return;
         }
 
-        // Обновление пароля через публичный метод
+        
         if (PlayerDataManager.updatePassword(username, newPassword)) {
             sendPasswordChangedSuccess(player);
         } else {
@@ -249,7 +240,7 @@ public class AuthCommand extends CommandBase {
     }
 
     private void handleAdminCommand(EntityPlayer player, String username, String[] args) {
-        // В 1.7.10 используется canCommandSenderUseCommand вместо canUseCommand
+
         if (!player.canCommandSenderUseCommand(4, "auth.admin")) {
             sendNoPermissionMessage(player);
             return;
@@ -271,12 +262,12 @@ public class AuthCommand extends CommandBase {
                 handleAdminReset(player, args[1]);
                 break;
             case "list":
-                // Передаем все оставшиеся аргументы как фильтр
+                
                 String filter = "all";
                 if (args.length > 1) {
                     filter = args[1].toLowerCase();
                 }
-                handleAdminList(player, filter, 1); // По умолчанию первая страница
+                handleAdminList(player, filter, 1); 
                 break;
             case "ip":
                 if (args.length < 2) {
@@ -290,9 +281,9 @@ public class AuthCommand extends CommandBase {
                     sendAdminAddUsage(player);
                     return;
                 }
-                handleAdminAddOp(player, args[1]); // args[1] - имя игрока
+                handleAdminAddOp(player, args[1]);
                 break;
-            // --- НОВОЕ: Обработка подкоманды 'reload' ---
+
             case "reload":
                 handleAdminReload(player);
                 break;
@@ -301,10 +292,8 @@ public class AuthCommand extends CommandBase {
         }
     }
 
-    // ========================================================================
-    // Вспомогательные методы
-    // ========================================================================
-
+    
+    
     private boolean doPasswordsMatch(String password, String confirmation) {
         return password.equals(confirmation);
     }
@@ -385,10 +374,10 @@ public class AuthCommand extends CommandBase {
         sendMessage(player, "§6Админ-команды:");
         sendMessage(player, "§e/auth admin reset <игрок> §7- сбросить пароль");
         sendMessage(player, "§e/auth admin ip <игрок> §7- информация об IP");
-        // --- НОВОЕ: Добавляем новые команды в список ---
+
         sendMessage(player, "§e/auth admin add <игрок> §7- добавить игрока в список операторов мода");
         sendMessage(player, "§e/auth admin reload §7- перезагрузить данные мода из файла");
-        // --- КОНЕЦ НОВОГО ---
+
         sendMessage(player, "§e/auth admin list [all|banned|5min|15min|30min|60min] §7- список игроков");
     }
 
@@ -432,7 +421,7 @@ public class AuthCommand extends CommandBase {
     private void handleAdminList(EntityPlayer player, String filter, int page) {
         List<PlayerData> players = PlayerDataManager.getAllPlayers();
 
-        // Применяем фильтр
+        
         long currentTime = System.currentTimeMillis();
         long fiveMinutesAgo = currentTime - 5 * 60 * 1000;
         long fifteenMinutesAgo = currentTime - 15 * 60 * 1000;
@@ -456,7 +445,7 @@ public class AuthCommand extends CommandBase {
                 players = players.stream().filter(p -> p.getRegistrationDate() >= sixtyMinutesAgo).collect(Collectors.toList());
                 break;
             default:
-                // Все игроки (без фильтрации)
+
                 break;
         }
 
@@ -465,11 +454,11 @@ public class AuthCommand extends CommandBase {
             return;
         }
 
-        // Пагинация
+        
         final int pageSize = 10;
         int totalPages = (players.size() + pageSize - 1) / pageSize;
 
-        // Корректировка номера страницы
+        
         if (page < 1) page = 1;
         if (page > totalPages) page = totalPages;
 
@@ -478,10 +467,10 @@ public class AuthCommand extends CommandBase {
 
         List<PlayerData> pageData = players.subList(start, end);
 
-        // Отправка заголовка с интерактивными кнопками
+        
         sendAdminListHeader(player, filter, page, totalPages);
 
-        // Отправка данных игроков
+        
         for (PlayerData data : pageData) {
             String banStatus = data.isBanned() ? "§cЗАБАНЕН" : "§aАКТИВЕН";
             String message = String.format("§e%s §7| §bПосл. IP: %s §7| §bРег. IP: %s §7| §eСтатус: %s",
@@ -502,14 +491,13 @@ public class AuthCommand extends CommandBase {
             case "5min":
                 return players.stream().filter(p -> p.getRegistrationDate() >= fiveMinutesAgo).collect(Collectors.toList());
             default:
-                return players; // Все игроки
+                return players; 
         }
     }
 
     private void sendPaginationControls(EntityPlayer player, int currentPage, int totalPages, String filter) {
         IChatComponent controls = new ChatComponentText("§6Навигация: ");
 
-        // Кнопка "Предыдущая"
         if (currentPage > 1) {
             ChatComponentText prevBtn = new ChatComponentText("[←] ");
             prevBtn.setChatStyle(new ChatStyle()
@@ -519,12 +507,11 @@ public class AuthCommand extends CommandBase {
             controls.appendSibling(prevBtn);
         }
 
-        // Текущая страница
+        
         ChatComponentText currentPageText = new ChatComponentText(String.format("[%d/%d] ", currentPage, totalPages));
         currentPageText.setChatStyle(new ChatStyle().setColor(EnumChatFormatting.GREEN));
         controls.appendSibling(currentPageText);
 
-        // Кнопка "Следующая"
         if (currentPage < totalPages) {
             ChatComponentText nextBtn = new ChatComponentText("[→]");
             nextBtn.setChatStyle(new ChatStyle()
@@ -540,19 +527,17 @@ public class AuthCommand extends CommandBase {
     private void sendAdminListHeader(EntityPlayer player, String filter, int currentPage, int totalPages) {
         IChatComponent header = new ChatComponentText("§6Список игроков | Фильтры: ");
 
-        // Кнопка "Все"
         ChatComponentText allBtn = new ChatComponentText("[Все] ");
         allBtn.setChatStyle(new ChatStyle()
                 .setColor(EnumChatFormatting.GREEN)
                 .setChatClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/auth admin list all")));
 
-        // Кнопка "Забаненные"
         ChatComponentText bannedBtn = new ChatComponentText("[Забаненные] ");
         bannedBtn.setChatStyle(new ChatStyle()
                 .setColor(EnumChatFormatting.RED)
                 .setChatClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/auth admin list banned")));
 
-        // Кнопки времени
+        
         ChatComponentText last5min = new ChatComponentText("[5м] ");
         last5min.setChatStyle(new ChatStyle()
                 .setColor(EnumChatFormatting.YELLOW)
@@ -573,10 +558,9 @@ public class AuthCommand extends CommandBase {
                 .setColor(EnumChatFormatting.YELLOW)
                 .setChatClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/auth admin list 60min")));
 
-        // Навигация по страницам
+        
         IChatComponent navigation = new ChatComponentText(" §7| Страницы: ");
 
-        // Кнопка "Предыдущая"
         if (currentPage > 1) {
             ChatComponentText prevBtn = new ChatComponentText("[←] ");
             prevBtn.setChatStyle(new ChatStyle()
@@ -586,12 +570,11 @@ public class AuthCommand extends CommandBase {
             navigation.appendSibling(prevBtn);
         }
 
-        // Текущая страница
+        
         ChatComponentText currentPageText = new ChatComponentText(String.format("[%d/%d] ", currentPage, totalPages));
         currentPageText.setChatStyle(new ChatStyle().setColor(EnumChatFormatting.GREEN));
         navigation.appendSibling(currentPageText);
 
-        // Кнопка "Следующая"
         if (currentPage < totalPages) {
             ChatComponentText nextBtn = new ChatComponentText("[→]");
             nextBtn.setChatStyle(new ChatStyle()
@@ -601,7 +584,7 @@ public class AuthCommand extends CommandBase {
             navigation.appendSibling(nextBtn);
         }
 
-        // Добавляем все компоненты к заголовку
+        
         header.appendSibling(allBtn);
         header.appendSibling(bannedBtn);
         header.appendSibling(last5min);
@@ -625,36 +608,32 @@ public class AuthCommand extends CommandBase {
     }
 
     private void handleAdminAddOp(EntityPlayer admin, String targetPlayerName) {
-        // Проверяем, существует ли игрок в данных мода
+
         if (!PlayerDataManager.isPlayerRegistered(targetPlayerName)) {
-            // Игрок не зарегистрирован в моде. Можно либо запретить, либо создать минимальную запись.
-            // Для простоты, запретим.
+
             sendCommandError(admin, "Игрок '" + targetPlayerName + "' не зарегистрирован в системе аутентификации.");
             AuthMod.logger.warn("[ADMIN] Admin {} tried to add unregistered player '{}' as operator.", admin.getCommandSenderName(), targetPlayerName);
             return;
         }
 
-        // Проверяем, не является ли он уже оператором в данных мода
         if (PlayerDataManager.isPlayerOperator(targetPlayerName)) {
             sendCommandError(admin, "Игрок '" + targetPlayerName + "' уже является оператором в системе аутентификации.");
             return;
         }
 
-        // Обновляем статус оператора в данных мода
+        
         if (PlayerDataManager.updateOperatorStatus(targetPlayerName, true)) {
             sendMessage(admin, "§aИгрок '" + targetPlayerName + "' успешно добавлен в список операторов системы аутентификации.");
 
-            // --- ДОПОЛНИТЕЛЬНО: Попытка выдать OP на сервере сразу, если игрок онлайн ---
-            // Это не обязательно, но удобно. OP будет восстановлен при следующем логине в любом случае.
             EntityPlayerMP targetPlayerMP = getOnlinePlayerByName(targetPlayerName);
             if (targetPlayerMP != null) {
-                AuthEventHandler.reopPlayerOnServer(targetPlayerMP); // Используем существующий метод
+                AuthEventHandler.reopPlayerOnServer(targetPlayerMP); 
                 sendMessage(admin, "§aOP-статус также выдан игроку '" + targetPlayerName + "' на сервере (онлайн).");
                 AuthMod.logger.info("[ADMIN] Admin {} added player '{}' as operator (data updated, server OP granted).", admin.getCommandSenderName(), targetPlayerName);
             } else {
                 AuthMod.logger.info("[ADMIN] Admin {} added player '{}' as operator (data updated).", admin.getCommandSenderName(), targetPlayerName);
             }
-            // --- КОНЕЦ ДОПОЛНЕНИЯ ---
+
 
         } else {
             sendCommandError(admin, "Ошибка при добавлении игрока '" + targetPlayerName + "' в список операторов.");
@@ -663,7 +642,7 @@ public class AuthCommand extends CommandBase {
     }
     private void handleAdminReload(EntityPlayer admin) {
         try {
-            PlayerDataManager.reloadData(); // Предполагаем, что такой метод будет добавлен в PlayerDataManager
+            PlayerDataManager.reloadData();
             sendMessage(admin, "§aДанные системы аутентификации успешно перезагружены из файла.");
             AuthMod.logger.info("[ADMIN] Admin {} reloaded auth data.", admin.getCommandSenderName());
         } catch (Exception e) {
@@ -671,18 +650,16 @@ public class AuthCommand extends CommandBase {
             AuthMod.logger.error("[ADMIN] Admin {} failed to reload auth data.", admin.getCommandSenderName(), e);
         }
     }
-// --- КОНЕЦ НОВОГО ---
 
-    // --- НОВОЕ: Вспомогательный метод для поиска онлайн-игрока по имени ---
-// Добавьте этот метод в класс AuthCommand
+
     private EntityPlayerMP getOnlinePlayerByName(String username) {
-        // Получаем список всех онлайн-игроков
+
         net.minecraft.server.MinecraftServer server = net.minecraft.server.MinecraftServer.getServer();
         if (server != null) {
             net.minecraft.server.management.ServerConfigurationManager configManager = server.getConfigurationManager();
             if (configManager != null) {
-                // В 1.7.10 getPlayerList() возвращает Player[] или List
-                // Итерируемся по списку
+
+                
                 for (Object playerObj : (java.lang.Iterable<?>) configManager.playerEntityList) {
                     if (playerObj instanceof EntityPlayerMP) {
                         EntityPlayerMP playerMP = (EntityPlayerMP) playerObj;
@@ -699,7 +676,6 @@ public class AuthCommand extends CommandBase {
         sendMessage(player, "§cИспользование: /auth admin add <игрок>");
     }
 
-    // Обновите sendAdminUsageMessage, чтобы включить новые команды:
 
 
     @Override

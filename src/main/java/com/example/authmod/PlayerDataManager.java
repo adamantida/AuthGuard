@@ -1,4 +1,4 @@
-// Файл: PlayerDataManager.java
+
 package com.example.authmod;
 
 import com.google.gson.Gson;
@@ -46,9 +46,8 @@ public class PlayerDataManager {
                 return t;
             });
 
-    // ========================================================================
-    // Основные методы
-    // ========================================================================
+
+
 
     /**
      * Инициализирует менеджер данных
@@ -79,7 +78,7 @@ public class PlayerDataManager {
     public static void registerPlayer(String username, String password, String ip) {
         String hashedPassword = AuthHelper.hashPassword(password);
         PlayerData data = new PlayerData(username, hashedPassword, System.currentTimeMillis(),
-                ip, ip, false, false); // isBanned = false, isOperator = false
+                ip, ip, false, false);
         PLAYER_DATA_MAP.put(username, data);
         scheduleSave();
     }
@@ -95,7 +94,7 @@ public class PlayerDataManager {
                     oldData.getHashedPassword(),
                     oldData.getRegistrationDate(),
                     oldData.getRegistrationIP(),
-                    ip, // Обновляем lastLoginIP
+                    ip,
                     oldData.isBanned(),
                     oldData.isOperator()
             );
@@ -117,8 +116,8 @@ public class PlayerDataManager {
     public static boolean resetPlayerPassword(String username) {
         PlayerData oldData = PLAYER_DATA_MAP.get(username);
         if (oldData != null) {
-            // Генерируем временный пароль или оставляем без изменений
-            String tempPassword = "temp1234"; // Можно сделать более безопасным
+
+            String tempPassword = "temp1234";
             String hashedPassword = AuthHelper.hashPassword(tempPassword);
 
             PlayerData newData = new PlayerData(
@@ -182,9 +181,8 @@ public class PlayerDataManager {
         return new ArrayList<>(PLAYER_DATA_MAP.values());
     }
 
-    // ========================================================================
-    // Вспомогательные методы
-    // ========================================================================
+
+
 
     /**
      * Загружает данные из файла
@@ -192,7 +190,7 @@ public class PlayerDataManager {
     private static void loadData() {
         if (DATA_FILE.exists()) {
             try (Reader reader = new FileReader(DATA_FILE)) {
-                // Используем JsonParser для обработки старых данных
+
                 JsonObject json = new JsonParser().parse(reader).getAsJsonObject();
                 Map<String, PlayerData> loadedData = new HashMap<>();
 
@@ -200,11 +198,10 @@ public class PlayerDataManager {
                     String username = entry.getKey();
                     JsonObject playerJson = entry.getValue().getAsJsonObject();
 
-                    // Проверяем наличие новых полей
                     String registrationIP = "unknown";
                     String lastLoginIP = "unknown";
                     boolean isBanned = false;
-                    boolean isOperator = false; // Новое поле, по умолчанию false
+                    boolean isOperator = false;
 
                     if (playerJson.has("registrationIP")) {
                         registrationIP = playerJson.get("registrationIP").getAsString();
@@ -222,7 +219,6 @@ public class PlayerDataManager {
                         isOperator = playerJson.get("isOperator").getAsBoolean();
                     }
 
-                    // Создаем данные с учетом обратной совместимости
                     PlayerData data = new PlayerData(
                             username,
                             playerJson.get("hashedPassword").getAsString(),
@@ -230,7 +226,7 @@ public class PlayerDataManager {
                             registrationIP,
                             lastLoginIP,
                             isBanned,
-                            isOperator // Передаем новое поле
+                            isOperator
                     );
 
                     loadedData.put(username, data);
@@ -242,7 +238,7 @@ public class PlayerDataManager {
                 }
             } catch (Exception e) {
                 AuthMod.logger.error("Failed to load player data", e);
-                // Инициализируем пустую карту при ошибке
+
                 PLAYER_DATA_MAP.clear();
             }
         }
@@ -253,7 +249,7 @@ public class PlayerDataManager {
      */
     private static void scheduleSave() {
         if (savePending.getAndSet(true)) {
-            return; // Сохранение уже запланировано
+            return;
         }
 
         SAVE_EXECUTOR.schedule(() -> {
@@ -278,19 +274,19 @@ public class PlayerDataManager {
     }
 
     public static boolean isPlayerOperator(String username) {
-        // Используем нормализацию из AuthEventHandler, как и в других местах
+
         String normalizedUsername = AuthEventHandler.normalizeUsername(username);
         PlayerData data = getPlayerData(normalizedUsername);
         return data != null && data.isOperator();
     }
 
     public static boolean updateOperatorStatus(String username, boolean isOperator) {
-        // Используем нормализацию из AuthEventHandler, как и в других местах
+
         String normalizedUsername = AuthEventHandler.normalizeUsername(username);
         PlayerData oldData = getPlayerData(normalizedUsername);
 
         if (oldData != null) {
-            // Создаем новый объект PlayerData с обновленным статусом оператора
+
             PlayerData newData = new PlayerData(
                     oldData.getUsername(),
                     oldData.getHashedPassword(),
@@ -298,17 +294,17 @@ public class PlayerDataManager {
                     oldData.getRegistrationIP(),
                     oldData.getLastLoginIP(),
                     oldData.isBanned(),
-                    isOperator // Обновленный статус оператора
+                    isOperator
             );
-            // Заменяем старые данные на новые
+
             PLAYER_DATA_MAP.put(normalizedUsername, newData);
-            // Сохраняем обновленные данные немедленно
-            saveData(); // Используем прямой вызов saveData вместо scheduleSave для немедленного эффекта
+
+            saveData();
             AuthMod.logger.info("Updated operator status for player '{}' to {}.", normalizedUsername, isOperator);
             return true;
         }
         AuthMod.logger.warn("Tried to update operator status for unknown player: {}", normalizedUsername);
-        return false; // Игрок не найден
+        return false;
     }
     public static Set<String> getOperatorUsernames() {
         Set<String> operators = new HashSet<>();
@@ -322,14 +318,14 @@ public class PlayerDataManager {
     public static void reloadData() throws RuntimeException {
         try {
             AuthMod.logger.info("Reloading player data from {}...", DATA_FILE.getAbsolutePath());
-            // Очищаем текущую карту
+
             PLAYER_DATA_MAP.clear();
-            // Загружаем данные заново
+
             loadData();
             AuthMod.logger.info("Player data successfully reloaded. Loaded {} player records.", PLAYER_DATA_MAP.size());
         } catch (Exception e) {
             AuthMod.logger.error("Failed to reload player data", e);
-            // Повторно выбрасываем исключение, чтобы вызывающая сторона могла его обработать
+
             throw new RuntimeException("Failed to reload player data: " + e.getMessage(), e);
         }
     }
