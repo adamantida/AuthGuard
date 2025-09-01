@@ -11,10 +11,10 @@ import net.minecraftforge.event.ServerChatEvent;
  */
 public class ChatEventHandler {
 
-    /** Интервал отправки сообщений (раз в 5 секунд) */
+    /**
+     * Интервал отправки сообщений (раз в 5 секунд)
+     */
     private static final int MESSAGE_INTERVAL = 100;
-
-
 
 
     @SubscribeEvent
@@ -31,14 +31,10 @@ public class ChatEventHandler {
 
         if (message.startsWith("/")) {
             handleCommandMessage(event, player);
-        }
-
-        else {
+        } else {
             handleChatMessage(event, player);
         }
     }
-
-
 
 
     private void handleCommandMessage(ServerChatEvent event, EntityPlayer player) {
@@ -66,7 +62,7 @@ public class ChatEventHandler {
         if (player.ticksExisted % MESSAGE_INTERVAL == 0) {
             try {
                 player.addChatMessage(new ChatComponentText("§cВы должны авторизоваться перед использованием чата!"));
-            } catch (Exception e) {
+            } catch (Exception ignored) {
 
             }
         }

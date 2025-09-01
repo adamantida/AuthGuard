@@ -5,39 +5,49 @@ package com.example.authmod;
  */
 public class PlayerData {
 
-    /** Имя пользователя */
+    /**
+     * Имя пользователя
+     */
     private final String username;
 
-    /** Хеш пароля */
+    /**
+     * Хеш пароля
+     */
     private final String hashedPassword;
 
-    /** Дата регистрации */
+    /**
+     * Дата регистрации
+     */
     private final long registrationDate;
 
-    /** IP-адрес регистрации (новое поле) */
+    /**
+     * IP-адрес регистрации (новое поле)
+     */
     private final String registrationIP;
 
-    /** Последний IP-адрес входа (новое поле) */
+    /**
+     * Последний IP-адрес входа (новое поле)
+     */
     private final String lastLoginIP;
 
-    /** Статус бана (новое поле) */
+    /**
+     * Статус бана (новое поле)
+     */
     private final boolean isBanned;
 
     private final boolean isOperator;
 
 
-
-
     /**
      * Конструктор для создания нового объекта PlayerData.
      *
-     * @param username Имя пользователя
-     * @param hashedPassword Хеш пароля
+     * @param username         Имя пользователя
+     * @param hashedPassword   Хеш пароля
      * @param registrationDate Дата регистрации
-     * @param registrationIP IP-адрес регистрации
-     * @param lastLoginIP Последний IP-адрес входа
-     * @param isBanned Статус бана
-     * @param isOperator Статус оператора (новый параметр)
+     * @param registrationIP   IP-адрес регистрации
+     * @param lastLoginIP      Последний IP-адрес входа
+     * @param isBanned         Статус бана
+     * @param isOperator       Статус оператора (новый параметр)
      */
     public PlayerData(String username, String hashedPassword, long registrationDate,
                       String registrationIP, String lastLoginIP, boolean isBanned, boolean isOperator) {
@@ -80,6 +90,7 @@ public class PlayerData {
     public boolean isBanned() {
         return isBanned;
     }
+
     public boolean isOperator() {
         return isOperator;
     }

@@ -1,20 +1,14 @@
-
 package com.example.authmod;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.google.gson.reflect.TypeToken;
+import com.google.gson.*;
 
 import java.io.*;
-import java.lang.reflect.Type;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import static com.example.authmod.AuthEventHandler.normalizeUsername;
 
 /**
  * Менеджер данных игроков.
@@ -22,22 +16,25 @@ import static com.example.authmod.AuthEventHandler.normalizeUsername;
  */
 public class PlayerDataManager {
 
-    /** Gson для сериализации/десериализации */
+    /**
+     * Gson для сериализации/десериализации
+     */
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-
-    /** Файл для хранения данных */
-    private static File DATA_FILE;
-
-    /** Карта данных игроков */
+    /**
+     * Карта данных игроков
+     */
     private static final Map<String, PlayerData> PLAYER_DATA_MAP = new ConcurrentHashMap<>();
-
-    /** Задержка перед сохранением (10 секунд) */
+    /**
+     * Задержка перед сохранением (10 секунд)
+     */
     private static final int SAVE_DELAY = 20 * 10;
-
-    /** Флаг необходимости сохранения */
+    /**
+     * Флаг необходимости сохранения
+     */
     private static final AtomicBoolean savePending = new AtomicBoolean(false);
-
-    /** Пул потоков для отложенного сохранения */
+    /**
+     * Пул потоков для отложенного сохранения
+     */
     private static final ScheduledExecutorService SAVE_EXECUTOR =
             Executors.newSingleThreadScheduledExecutor(r -> {
                 Thread t = new Thread(r);
@@ -45,9 +42,10 @@ public class PlayerDataManager {
                 t.setDaemon(true);
                 return t;
             });
-
-
-
+    /**
+     * Файл для хранения данных
+     */
+    private static File DATA_FILE;
 
     /**
      * Инициализирует менеджер данных
@@ -181,9 +179,6 @@ public class PlayerDataManager {
         return new ArrayList<>(PLAYER_DATA_MAP.values());
     }
 
-
-
-
     /**
      * Загружает данные из файла
      */
@@ -191,7 +186,7 @@ public class PlayerDataManager {
         if (DATA_FILE.exists()) {
             try (Reader reader = new FileReader(DATA_FILE)) {
 
-                JsonObject json = new JsonParser().parse(reader).getAsJsonObject();
+                JsonObject json = JsonParser.parseReader(reader).getAsJsonObject();
                 Map<String, PlayerData> loadedData = new HashMap<>();
 
                 for (Map.Entry<String, JsonElement> entry : json.entrySet()) {
@@ -306,6 +301,7 @@ public class PlayerDataManager {
         AuthMod.logger.warn("Tried to update operator status for unknown player: {}", normalizedUsername);
         return false;
     }
+
     public static Set<String> getOperatorUsernames() {
         Set<String> operators = new HashSet<>();
         for (Map.Entry<String, PlayerData> entry : PLAYER_DATA_MAP.entrySet()) {
@@ -315,6 +311,7 @@ public class PlayerDataManager {
         }
         return operators;
     }
+
     public static void reloadData() throws RuntimeException {
         try {
             AuthMod.logger.info("Reloading player data from {}...", DATA_FILE.getAbsolutePath());
