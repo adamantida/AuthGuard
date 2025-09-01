@@ -10,7 +10,6 @@ import net.minecraft.world.World;
 import net.minecraftforge.event.entity.item.ItemTossEvent;
 import net.minecraftforge.event.entity.living.LivingEvent;
 import net.minecraftforge.event.entity.player.*;
-
 import java.lang.reflect.Field;
 import java.util.*;
 import java.util.concurrent.*;
@@ -101,6 +100,12 @@ public class AuthEventHandler {
         LAST_VALID_POSITION.remove(username);
         POSITION_INITIALIZED.remove(username);
 
+        // Обновляем IP в данных
+        if (player instanceof EntityPlayerMP) {
+            String ip = getPlayerIP((EntityPlayerMP) player);
+            PlayerDataManager.updateLoginData(username, ip);
+        }
+
         // Уведомление игрока
         sendPrivateMessage(player, "§aАвторизация успешна!");
     }
@@ -112,6 +117,22 @@ public class AuthEventHandler {
         String normalizedUsername = normalizeUsername(username);
         if (LOGIN_TIME_MAP.containsKey(normalizedUsername)) {
             LOGIN_TIME_MAP.put(normalizedUsername, System.currentTimeMillis());
+        }
+    }
+
+    /**
+     * Возвращает IP-адрес игрока
+     */
+    public static String getPlayerIP(EntityPlayerMP player) {
+        try {
+            String ip = player.getPlayerIP();
+            // Удаляем порт, если он есть
+            if (ip.contains(":")) {
+                return ip.substring(0, ip.indexOf(':'));
+            }
+            return ip;
+        } catch (Exception e) {
+            return "unknown";
         }
     }
 
@@ -313,7 +334,7 @@ public class AuthEventHandler {
     }
 
     // ИСПРАВЛЕННЫЙ МЕТОД: инициализация позиции после входа (решает проблему с погружением в землю)
-    private void initializePlayerPosition(EntityPlayer player, String username) {
+    public static void initializePlayerPosition(EntityPlayer player, String username) {
         World world = player.worldObj;
 
         // Находим безопасную позицию над блоком
@@ -334,6 +355,20 @@ public class AuthEventHandler {
 
         // Применяем позицию
         player.setPositionAndUpdate(position[0], position[1], position[2]);
+    }
+
+    public static void deauthenticatePlayer(EntityPlayer player) {
+        if (player == null) return;
+
+        String username = normalizeUsername(player.getCommandSenderName());
+        clearPlayerData(username);
+        AUTHENTICATED_PLAYERS.put(username, false);
+        LOGIN_TIME_MAP.put(username, System.currentTimeMillis());
+
+        // Сброс позиции
+        if (player instanceof EntityPlayerMP) {
+            initializePlayerPosition(player, username);
+        }
     }
 
     // ОПТИМИЗИРОВАННЫЙ МЕТОД: полная блокировка движения
@@ -463,7 +498,7 @@ public class AuthEventHandler {
     /**
      * Очищает данные игрока при выходе
      */
-    private void clearPlayerData(String username) {
+    public static void clearPlayerData(String username) {
         AUTHENTICATED_PLAYERS.remove(username);
         LOGIN_TIME_MAP.remove(username);
         LAST_VALID_POSITION.remove(username);
