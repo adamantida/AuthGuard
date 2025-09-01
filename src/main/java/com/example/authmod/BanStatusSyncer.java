@@ -1,14 +1,13 @@
-
 package com.example.authmod;
 
-import cpw.mods.fml.common.FMLCommonHandler;
-import cpw.mods.fml.common.eventhandler.SubscribeEvent;
-import cpw.mods.fml.common.gameevent.TickEvent;
-import net.minecraft.server.MinecraftServer;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import cpw.mods.fml.common.FMLCommonHandler;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.common.gameevent.TickEvent;
+import net.minecraft.server.MinecraftServer;
 
 import java.io.File;
 import java.io.FileReader;
@@ -66,28 +65,21 @@ public class BanStatusSyncer {
             Set<String> currentBannedUsernames = new HashSet<>();
 
             try (FileReader reader = new FileReader(bannedPlayersFile)) {
-                JsonElement rootElement = new JsonParser().parse(reader);
-
+                JsonElement rootElement = JsonParser.parseReader(reader);
                 if (rootElement.isJsonArray()) {
-
                     JsonArray banArray = rootElement.getAsJsonArray();
                     for (JsonElement element : banArray) {
                         if (element.isJsonObject()) {
                             JsonObject banEntry = element.getAsJsonObject();
                             JsonElement nameElement = banEntry.get("name");
                             if (nameElement != null && nameElement.isJsonPrimitive()) {
-
                                 currentBannedUsernames.add(nameElement.getAsString());
                             }
                         }
                     }
                 } else if (rootElement.isJsonObject()) {
-
                     JsonObject banObject = rootElement.getAsJsonObject();
-                    for (String username : banObject.keySet()) {
-
-                        currentBannedUsernames.add(username);
-                    }
+                    currentBannedUsernames.addAll(banObject.keySet());
                 } else {
                     AuthMod.logger.warn("[BanStatusSyncer] banned-players.json root element is neither an Object nor an Array. Assuming no players are banned.");
                 }
@@ -106,11 +98,8 @@ public class BanStatusSyncer {
 
         List<String> allPlayerNames = PlayerDataManager.getAllPlayerNames();
         AuthMod.logger.debug("[BanStatusSyncer] Checking ban status for {} registered players against {} loaded bans.", allPlayerNames.size(), lastBannedUsernames.size());
-
         for (String username : allPlayerNames) {
-
             boolean isBanned = lastBannedUsernames.contains(username);
-
             PlayerDataManager.setPlayerBanned(username, isBanned);
         }
     }

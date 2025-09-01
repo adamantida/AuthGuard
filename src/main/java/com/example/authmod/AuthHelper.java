@@ -1,9 +1,9 @@
 package com.example.authmod;
 
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.nio.charset.StandardCharsets;
 
 /**
  * Вспомогательный класс для хеширования паролей.
@@ -11,16 +11,20 @@ import java.nio.charset.StandardCharsets;
  */
 public class AuthHelper {
 
-    /** Генератор случайных чисел для создания соли */
+    /**
+     * Генератор случайных чисел для создания соли
+     */
     private static final SecureRandom RANDOM = new SecureRandom();
 
-    /** Массив символов для hex-кодирования */
+    /**
+     * Массив символов для hex-кодирования
+     */
     private static final char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
 
-    /** Количество итераций для хеширования */
+    /**
+     * Количество итераций для хеширования
+     */
     private static final int HASH_ITERATIONS = 10000;
-
-
 
 
     /**
@@ -68,8 +72,6 @@ public class AuthHelper {
             return false;
         }
     }
-
-
 
 
     /**

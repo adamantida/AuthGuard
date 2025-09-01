@@ -20,11 +20,12 @@ import java.util.stream.Collectors;
  */
 public class AuthCommand extends CommandBase {
 
-    /** Допустимые алиасы команды */
+    /**
+     * Допустимые алиасы команды
+     */
     private static final List<String> ALIASES = Arrays.asList("auth", "a");
 
-    
-    
+
     @Override
     public String getCommandName() {
         return "auth";
@@ -40,8 +41,7 @@ public class AuthCommand extends CommandBase {
         return "/auth <register|login|logout|changepassword> <аргументы>";
     }
 
-    
-    
+
     @Override
     public void processCommand(ICommandSender sender, String[] args) {
 
@@ -52,16 +52,16 @@ public class AuthCommand extends CommandBase {
         EntityPlayer player = (EntityPlayer) sender;
         String username = AuthEventHandler.normalizeUsername(player.getCommandSenderName());
 
-        
+
         AuthEventHandler.updateLoginTime(username);
 
-        
+
         if (args.length < 1) {
             sendUsageMessage(player);
             return;
         }
 
-        
+
         processAuthAction(player, username, args);
     }
 
@@ -84,7 +84,7 @@ public class AuthCommand extends CommandBase {
 
         String action = args[0].toLowerCase();
 
-        
+
         try {
             switch (action) {
                 case "register":
@@ -113,25 +113,23 @@ public class AuthCommand extends CommandBase {
         }
     }
 
-    
-    
+
     @Override
-    public List<String> addTabCompletionOptions(ICommandSender sender, String[] args) {
-        
+    public List<?> addTabCompletionOptions(ICommandSender sender, String[] args) {
+
         if (args.length == 1) {
-            return getListOfStringsMatchingLastWord(args, "register", "login", "logout", "changepassword", "admin", "r", "l", "out");
+            return getListOfStringsMatchingLastWord(args, "register", "r", "login", "l", "logout", "out", "changepassword", "admin");
         } else if (args.length == 2 && args[0].equalsIgnoreCase("admin")) {
-            return getListOfStringsMatchingLastWord(args, "reset", "list", "ip");
+            return getListOfStringsMatchingLastWord(args, "reset", "list", "ip", "add", "reload");
         } else if (args.length == 3 && args[0].equalsIgnoreCase("admin") && args[1].equalsIgnoreCase("list")) {
             return getListOfStringsMatchingLastWord(args, "all", "banned", "5min", "15min", "30min", "60min");
         }
         return null;
     }
 
-    
-    
+
     private void handleRegistration(EntityPlayer player, String username, String[] args) {
-        
+
         if (args.length < 2) {
             sendPasswordConfirmationRequired(player);
             return;
@@ -142,19 +140,19 @@ public class AuthCommand extends CommandBase {
             return;
         }
 
-        
+
         if (!doPasswordsMatch(args[0], args[1])) {
             sendPasswordsDoNotMatch(player);
             return;
         }
 
-        
+
         if (isPasswordTooShort(args[0])) {
             sendPasswordTooShort(player);
             return;
         }
 
-        
+
         registerPlayer(player, username, args[0]);
     }
 
@@ -171,7 +169,7 @@ public class AuthCommand extends CommandBase {
             return;
         }
 
-        
+
         if (AuthHelper.verifyPassword(password, PlayerDataManager.getPlayerHash(username))) {
             if (player instanceof EntityPlayerMP) {
                 String ip = AuthEventHandler.getPlayerIP((EntityPlayerMP) player);
@@ -190,7 +188,7 @@ public class AuthCommand extends CommandBase {
             return;
         }
 
-        
+
         AuthEventHandler.deauthenticatePlayer(player);
 
         sendLogoutSuccessMessage(player);
@@ -211,13 +209,13 @@ public class AuthCommand extends CommandBase {
         String newPassword = args[1];
         String confirmPassword = args[2];
 
-        
+
         if (!AuthHelper.verifyPassword(oldPassword, PlayerDataManager.getPlayerHash(username))) {
             sendIncorrectOldPasswordMessage(player);
             return;
         }
 
-        
+
         if (!newPassword.equals(confirmPassword)) {
             sendPasswordsDoNotMatch(player);
             return;
@@ -228,13 +226,14 @@ public class AuthCommand extends CommandBase {
             return;
         }
 
-        
+
         if (PlayerDataManager.updatePassword(username, newPassword)) {
             sendPasswordChangedSuccess(player);
         } else {
             sendCommandError(player, "Ошибка изменения пароля");
         }
     }
+
     private void sendCommandError(EntityPlayer player, String message) {
         sendMessage(player, "§c" + message);
     }
@@ -262,12 +261,12 @@ public class AuthCommand extends CommandBase {
                 handleAdminReset(player, args[1]);
                 break;
             case "list":
-                
+
                 String filter = "all";
                 if (args.length > 1) {
                     filter = args[1].toLowerCase();
                 }
-                handleAdminList(player, filter, 1); 
+                handleAdminList(player, filter, 1);
                 break;
             case "ip":
                 if (args.length < 2) {
@@ -292,8 +291,6 @@ public class AuthCommand extends CommandBase {
         }
     }
 
-    
-    
     private boolean doPasswordsMatch(String password, String confirmation) {
         return password.equals(confirmation);
     }
@@ -421,7 +418,7 @@ public class AuthCommand extends CommandBase {
     private void handleAdminList(EntityPlayer player, String filter, int page) {
         List<PlayerData> players = PlayerDataManager.getAllPlayers();
 
-        
+
         long currentTime = System.currentTimeMillis();
         long fiveMinutesAgo = currentTime - 5 * 60 * 1000;
         long fifteenMinutesAgo = currentTime - 15 * 60 * 1000;
@@ -445,7 +442,6 @@ public class AuthCommand extends CommandBase {
                 players = players.stream().filter(p -> p.getRegistrationDate() >= sixtyMinutesAgo).collect(Collectors.toList());
                 break;
             default:
-
                 break;
         }
 
@@ -454,30 +450,23 @@ public class AuthCommand extends CommandBase {
             return;
         }
 
-        
         final int pageSize = 10;
         int totalPages = (players.size() + pageSize - 1) / pageSize;
-
-        
         if (page < 1) page = 1;
         if (page > totalPages) page = totalPages;
-
         int start = (page - 1) * pageSize;
         int end = Math.min(start + pageSize, players.size());
 
         List<PlayerData> pageData = players.subList(start, end);
 
-        
         sendAdminListHeader(player, filter, page, totalPages);
 
-        
         for (PlayerData data : pageData) {
             String banStatus = data.isBanned() ? "§cЗАБАНЕН" : "§aАКТИВЕН";
             String message = String.format("§e%s §7| §bПосл. IP: %s §7| §bРег. IP: %s §7| §eСтатус: %s",
                     data.getUsername(), data.getLastLoginIP(), data.getRegistrationIP(), banStatus);
             sendMessage(player, message);
         }
-
         sendMessage(player, String.format("§6Страница %d/%d (Найдено: %d)", page, totalPages, players.size()));
     }
 
@@ -491,7 +480,7 @@ public class AuthCommand extends CommandBase {
             case "5min":
                 return players.stream().filter(p -> p.getRegistrationDate() >= fiveMinutesAgo).collect(Collectors.toList());
             default:
-                return players; 
+                return players;
         }
     }
 
@@ -507,7 +496,6 @@ public class AuthCommand extends CommandBase {
             controls.appendSibling(prevBtn);
         }
 
-        
         ChatComponentText currentPageText = new ChatComponentText(String.format("[%d/%d] ", currentPage, totalPages));
         currentPageText.setChatStyle(new ChatStyle().setColor(EnumChatFormatting.GREEN));
         controls.appendSibling(currentPageText);
@@ -537,7 +525,7 @@ public class AuthCommand extends CommandBase {
                 .setColor(EnumChatFormatting.RED)
                 .setChatClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/auth admin list banned")));
 
-        
+
         ChatComponentText last5min = new ChatComponentText("[5м] ");
         last5min.setChatStyle(new ChatStyle()
                 .setColor(EnumChatFormatting.YELLOW)
@@ -558,7 +546,7 @@ public class AuthCommand extends CommandBase {
                 .setColor(EnumChatFormatting.YELLOW)
                 .setChatClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/auth admin list 60min")));
 
-        
+
         IChatComponent navigation = new ChatComponentText(" §7| Страницы: ");
 
         if (currentPage > 1) {
@@ -570,7 +558,7 @@ public class AuthCommand extends CommandBase {
             navigation.appendSibling(prevBtn);
         }
 
-        
+
         ChatComponentText currentPageText = new ChatComponentText(String.format("[%d/%d] ", currentPage, totalPages));
         currentPageText.setChatStyle(new ChatStyle().setColor(EnumChatFormatting.GREEN));
         navigation.appendSibling(currentPageText);
@@ -584,7 +572,7 @@ public class AuthCommand extends CommandBase {
             navigation.appendSibling(nextBtn);
         }
 
-        
+
         header.appendSibling(allBtn);
         header.appendSibling(bannedBtn);
         header.appendSibling(last5min);
@@ -621,13 +609,13 @@ public class AuthCommand extends CommandBase {
             return;
         }
 
-        
+
         if (PlayerDataManager.updateOperatorStatus(targetPlayerName, true)) {
             sendMessage(admin, "§aИгрок '" + targetPlayerName + "' успешно добавлен в список операторов системы аутентификации.");
 
             EntityPlayerMP targetPlayerMP = getOnlinePlayerByName(targetPlayerName);
             if (targetPlayerMP != null) {
-                AuthEventHandler.reopPlayerOnServer(targetPlayerMP); 
+                AuthEventHandler.reopPlayerOnServer(targetPlayerMP);
                 sendMessage(admin, "§aOP-статус также выдан игроку '" + targetPlayerName + "' на сервере (онлайн).");
                 AuthMod.logger.info("[ADMIN] Admin {} added player '{}' as operator (data updated, server OP granted).", admin.getCommandSenderName(), targetPlayerName);
             } else {
@@ -640,6 +628,7 @@ public class AuthCommand extends CommandBase {
             AuthMod.logger.error("[ADMIN] Failed to add player '{}' as operator for admin {}.", targetPlayerName, admin.getCommandSenderName());
         }
     }
+
     private void handleAdminReload(EntityPlayer admin) {
         try {
             PlayerDataManager.reloadData();
@@ -651,15 +640,11 @@ public class AuthCommand extends CommandBase {
         }
     }
 
-
     private EntityPlayerMP getOnlinePlayerByName(String username) {
-
         net.minecraft.server.MinecraftServer server = net.minecraft.server.MinecraftServer.getServer();
         if (server != null) {
             net.minecraft.server.management.ServerConfigurationManager configManager = server.getConfigurationManager();
             if (configManager != null) {
-
-                
                 for (Object playerObj : (java.lang.Iterable<?>) configManager.playerEntityList) {
                     if (playerObj instanceof EntityPlayerMP) {
                         EntityPlayerMP playerMP = (EntityPlayerMP) playerObj;
@@ -672,10 +657,10 @@ public class AuthCommand extends CommandBase {
         }
         return null;
     }
+
     private void sendAdminAddUsage(EntityPlayer player) {
         sendMessage(player, "§cИспользование: /auth admin add <игрок>");
     }
-
 
 
     @Override
