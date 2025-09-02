@@ -309,23 +309,17 @@ public class AuthEventHandler {
         initializePlayerPosition(player, username);
         POSITION_INITIALIZED.put(username, true);
 
-        scheduleKickTask(player, username);
+        scheduleKickTask(username);
 
         scheduleLoginMessage(player, username);
 
         AuthMod.logger.info("Player login initialized: {}", username);
     }
 
-    private void scheduleKickTask(EntityPlayer player, String username) {
-        // Отменяем предыдущую задачу, если она существует
+    private void scheduleKickTask(String username) {
         cancelKickTask(username);
 
-        // Сохраняем время начала сессии
-        long loginTime = System.currentTimeMillis();
-
-        // Запланировать кик через MAX_LOGIN_TIME
         ScheduledFuture<?> kickTask = SCHEDULER.schedule(() -> {
-            // Проверяем, все ли еще нужен кик
             if (Boolean.FALSE.equals(AUTHENTICATED_PLAYERS.get(username))) {
                 EntityPlayerMP playerMP = getOnlinePlayerByName(username);
                 if (playerMP != null) {
@@ -337,11 +331,9 @@ public class AuthEventHandler {
                     }
                 }
             }
-            // Удаляем задачу из списка
             KICK_TASKS.remove(username);
         }, MAX_LOGIN_TIME, TimeUnit.MILLISECONDS);
 
-        // Сохраняем задачу для возможной отмены
         KICK_TASKS.put(username, kickTask);
     }
 
