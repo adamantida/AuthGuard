@@ -61,9 +61,6 @@ public class PlayerData {
         this.isOperator = isOperator;
     }
 
-    /**
-     * Конструктор для совместимости со старыми данными
-     */
     public PlayerData(String username, String hashedPassword, long registrationDate, long lastLoginDate) {
         this(username, hashedPassword, registrationDate, lastLoginDate, "unknown", "unknown", false, false);
     }

@@ -6,9 +6,13 @@ import cpw.mods.fml.common.gameevent.PlayerEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.event.ClickEvent;
+import net.minecraft.event.HoverEvent;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.management.ServerConfigurationManager;
 import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.ChatStyle;
+import net.minecraft.util.IChatComponent;
 import net.minecraft.world.World;
 import net.minecraftforge.event.entity.item.ItemTossEvent;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
@@ -22,67 +26,28 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/**
- * Обработчик событий аутентификации.
- * Контролирует состояние авторизации игроков и ограничивает действия
- * неавторизованных пользователей.
- */
 public class AuthEventHandler {
 
-    /**
-     * Максимальное время на авторизацию (3 минуты)
-     */
     public static final long MAX_LOGIN_TIME = 3 * 60 * 1000;
 
-    /**
-     * Интервал проверки (раз в 1 тик = 0.05 секунды для более жесткого контроля)
-     */
     private static final int CHECK_INTERVAL = 1;
 
-    /**
-     * Допуск позиции для уменьшения частоты телепортации
-     */
     private static final double POSITION_TOLERANCE = 0.1; // Уменьшено
 
-    /**
-     * Допуск для проверки позиции
-     */
     private static final double POSITION_CHECK_TOLERANCE = 0.05;
 
-    /**
-     * Интервал для обновления времени активности
-     */
     private static final int ACTIVITY_UPDATE_INTERVAL = 20;
 
-
-    /**
-     * Последние валидные позиции игроков
-     */
     private static final Map<String, double[]> LAST_VALID_POSITION = new ConcurrentHashMap<>();
 
-    /**
-     * Счетчик тиков после входа
-     */
     private static final Map<String, Integer> LOGIN_TICK_COUNTER = new ConcurrentHashMap<>();
 
-    /**
-     * Флаг инициализации позиции
-     */
     private static final Map<String, Boolean> POSITION_INITIALIZED = new ConcurrentHashMap<>();
 
-    /**
-     * Флаг аутентификации игроков
-     */
     private static final Map<String, Boolean> AUTHENTICATED_PLAYERS = new ConcurrentHashMap<>();
 
-    /**
-     * Время последней активности
-     */
     private static final Map<String, Long> LOGIN_TIME_MAP = new ConcurrentHashMap<>();
 
-    /**
-     * Пул потоков для отправки сообщений
-     */
     private static final ExecutorService LOGIN_MESSAGE_EXECUTOR = Executors.newFixedThreadPool(2, r -> {
         Thread t = new Thread(r);
         t.setName("Auth-Login-Messages");
@@ -90,17 +55,10 @@ public class AuthEventHandler {
         return t;
     });
 
-
-    /**
-     * Нормализует имя пользователя (приводит к нижнему регистру)
-     */
     public static String normalizeUsername(String username) {
         return (username != null) ? username : "unknown";
     }
 
-    /**
-     * Проверяет, авторизован ли игрок
-     */
     public static boolean isPlayerAuthenticated(EntityPlayer player) {
         if (player == null) return false;
 
@@ -108,9 +66,6 @@ public class AuthEventHandler {
         return Boolean.TRUE.equals(AUTHENTICATED_PLAYERS.get(username));
     }
 
-    /**
-     * Аутентифицирует игрока
-     */
     public static void authenticatePlayer(EntityPlayer player) {
         if (player == null) return;
 
@@ -129,13 +84,8 @@ public class AuthEventHandler {
             reopPlayerOnServer((EntityPlayerMP) player);
 
         }
-
-        sendPrivateMessage(player, "§aАвторизация успешна!");
     }
 
-    /**
-     * Обновляет время последней активности игрока
-     */
     public static void updateLoginTime(String username) {
         String normalizedUsername = normalizeUsername(username);
         if (LOGIN_TIME_MAP.containsKey(normalizedUsername)) {
@@ -143,9 +93,6 @@ public class AuthEventHandler {
         }
     }
 
-    /**
-     * Возвращает IP-адрес игрока
-     */
     public static String getPlayerIP(EntityPlayerMP player) {
         try {
             String ip = player.getPlayerIP();
@@ -159,9 +106,6 @@ public class AuthEventHandler {
         }
     }
 
-    /**
-     * Завершает работу пула потоков при выключении сервера
-     */
     public static void shutdown() {
         LOGIN_MESSAGE_EXECUTOR.shutdown();
     }
@@ -201,9 +145,6 @@ public class AuthEventHandler {
         }
     }
 
-    /**
-     * Очищает данные игрока при выходе
-     */
     public static void clearPlayerData(String username) {
         AUTHENTICATED_PLAYERS.remove(username);
         LOGIN_TIME_MAP.remove(username);
@@ -372,14 +313,52 @@ public class AuthEventHandler {
         });
     }
 
+    private IChatComponent createSeparator() {
+        return new ChatComponentText("§8─────────────────────────────────────────────");
+    }
+
+    private IChatComponent createHeader(String title, String icon) {
+        ChatComponentText header = new ChatComponentText(String.format("§6%s %s §6%s", icon, title, icon));
+        header.setChatStyle(new ChatStyle().setBold(true));
+        return header;
+    }
+
     private void sendLoginInstructions(EntityPlayer player, String username) {
         if (player == null || player.worldObj.isRemote) return;
-
         if (Boolean.FALSE.equals(AUTHENTICATED_PLAYERS.get(username))) {
-            String message = PlayerDataManager.isPlayerRegistered(username) ? "§6Введите /auth login <пароль> для авторизации" : "§6Введите /auth register <пароль> <подтверждение> для регистрации";
+            // Отправляем заголовок
+            player.addChatMessage(createHeader("Добро пожаловать на сервер!", "✦"));
+            player.addChatMessage(createSeparator());
 
-            player.addChatMessage(new ChatComponentText(message));
-            AuthMod.logger.info("Login message sent to player: " + username);
+            if (PlayerDataManager.isPlayerRegistered(username)) {
+                player.addChatMessage(new ChatComponentText("§eВы уже зарегистрированы!"));
+                player.addChatMessage(new ChatComponentText("§eВведите команду для авторизации:"));
+
+                // Команда для входа
+                ChatComponentText loginCommand = new ChatComponentText("§7- §e/login <пароль> §7- войти в аккаунт");
+                loginCommand.setChatStyle(new ChatStyle()
+                        .setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText("Нажмите для открытия формы входа")))
+                        .setChatClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, "/auth login ")));
+                player.addChatMessage(loginCommand);
+            } else {
+                player.addChatMessage(new ChatComponentText("§eВы первый раз на этом сервере?"));
+                player.addChatMessage(new ChatComponentText("§eВам необходимо зарегистрировать аккаунт для защиты от взлома!"));
+
+                // Команда для регистрации
+                ChatComponentText registerCommand = new ChatComponentText("§7- §e/register <пароль> <подтверждение> §7- зарегистрировать аккаунт");
+                registerCommand.setChatStyle(new ChatStyle()
+                        .setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText("Нажмите для открытия формы регистрации")))
+                        .setChatClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, "/auth register ")));
+                player.addChatMessage(registerCommand);
+
+                player.addChatMessage(new ChatComponentText("§7- §fПример: §e/register MySecurePass123 MySecurePass123"));
+
+                player.addChatMessage(createSeparator());
+                player.addChatMessage(new ChatComponentText("§eТребования к паролю:"));
+                player.addChatMessage(new ChatComponentText("§7- §fМинимум 8 символов"));
+            }
+
+            player.addChatMessage(createSeparator());
         }
     }
 
@@ -459,14 +438,20 @@ public class AuthEventHandler {
 
         long currentTime = System.currentTimeMillis();
         long timeSinceLogin = currentTime - loginTime;
+        long timeLeft = (MAX_LOGIN_TIME - timeSinceLogin) / 1000;
 
-        if (timeSinceLogin > (MAX_LOGIN_TIME - 60000) && player.ticksExisted % 100 == 0) {
-            long timeLeft = (MAX_LOGIN_TIME - timeSinceLogin) / 1000;
-            sendPrivateMessage(player, "§cАвторизуйтесь в течение " + timeLeft + " секунд!");
+        // Если осталось меньше 60 секунд
+        if (timeLeft > 0 && timeLeft <= 60 && player.ticksExisted % 100 == 0) {
+            // Красный цвет при остатке менее 10 секунд
+            String color = (timeLeft <= 10) ? "§c" : "§e";
+            sendPrivateMessage(player, String.format("%sВНИМАНИЕ! §fОсталось %d сек. для авторизации!",
+                    color, timeLeft));
         }
-
-        if (player.ticksExisted % 100 == 0) {
-            sendPrivateMessage(player, "Требуется авторизация!");
+        // Регулярные напоминания
+        else if (player.ticksExisted % 200 == 0) {
+            String command = PlayerDataManager.isPlayerRegistered(username) ?
+                    "§b/auth login <пароль>" : "§b/auth register <пароль> <подтверждение>";
+            sendPrivateMessage(player, "§6Требуется авторизация: " + command);
         }
     }
 

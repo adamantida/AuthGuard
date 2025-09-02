@@ -16,11 +16,7 @@ import org.apache.logging.log4j.Logger;
 @Mod(modid = "authmod", name = "Auth Mod", version = "1.0", acceptableRemoteVersions = "*")
 public class AuthMod {
 
-    /** Логгер для отладки и информации */
     public static Logger logger;
-
-
-
 
     @EventHandler
     public void preInit(FMLPreInitializationEvent event) {
@@ -32,10 +28,6 @@ public class AuthMod {
         FMLCommonHandler.instance().bus().register(new BanStatusSyncer());
         MinecraftForge.EVENT_BUS.register(new AuthEventHandler());
         MinecraftForge.EVENT_BUS.register(new ChatEventHandler());
-
-        logger.info("AuthMod initialized - Security Level: HIGH");
-        logger.info("Supported commands: /auth register, /auth login");
-        logger.info("Auto-kick timeout: {} seconds", AuthEventHandler.MAX_LOGIN_TIME / 1000);
     }
 
     @EventHandler
