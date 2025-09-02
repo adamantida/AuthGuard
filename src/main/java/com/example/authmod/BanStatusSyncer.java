@@ -16,10 +16,10 @@ import java.util.List;
 import java.util.Set;
 
 public class BanStatusSyncer {
-    private static final int SYNC_INTERVAL = 20 * 30; // Каждые 30 секунд (можно настроить)
+    private static final int SYNC_INTERVAL = 20 * 30;
     private int ticks = 0;
     private long lastModifiedTime = -1; // Время последней модификации файла
-    private Set<String> lastBannedUsernames = new HashSet<>(); // Кэш последнего прочитанного списка
+    private Set<String> lastBannedUsernames = new HashSet<>();
 
     @SubscribeEvent
     public void onServerTick(TickEvent.ServerTickEvent event) {

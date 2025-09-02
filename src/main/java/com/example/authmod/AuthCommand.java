@@ -5,14 +5,14 @@ import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.event.ClickEvent;
+import net.minecraft.event.HoverEvent;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.ChatStyle;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.IChatComponent;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.text.SimpleDateFormat;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -319,7 +319,27 @@ public class AuthCommand extends CommandBase {
     }
 
     private void sendPasswordConfirmationRequired(EntityPlayer player) {
-        sendMessage(player, "§cДля регистрации нужно подтверждение пароля");
+        player.addChatMessage(createHeader("Регистрация аккаунта", "✦"));
+        player.addChatMessage(createSeparator());
+        player.addChatMessage(new ChatComponentText("§eДля регистрации введите команду:"));
+
+        ChatComponentText command = new ChatComponentText("§7- §e/register <пароль> <подтверждение>");
+        command.setChatStyle(new ChatStyle()
+                .setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+                        new ChatComponentText("Нажмите для вставки команды")))
+                .setChatClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, "/auth register ")));
+        player.addChatMessage(command);
+
+        player.addChatMessage(createSeparator());
+        player.addChatMessage(new ChatComponentText("§eТребования к паролю:"));
+        player.addChatMessage(new ChatComponentText("§7- §fМинимум 8 символов"));
+
+        player.addChatMessage(createSeparator());
+        player.addChatMessage(new ChatComponentText("§eПример безопасного пароля:"));
+        player.addChatMessage(new ChatComponentText("§7- §aSecurePass123"));
+        player.addChatMessage(new ChatComponentText("§7- §aMinecraft2023!"));
+
+        player.addChatMessage(createSeparator());
     }
 
     private void sendAlreadyRegisteredMessage(EntityPlayer player) {
@@ -342,12 +362,137 @@ public class AuthCommand extends CommandBase {
         sendMessage(player, "§cНеверный пароль!");
     }
 
+    private IChatComponent createSeparator() {
+        return new ChatComponentText("§8─────────────────────────────────────────────");
+    }
+
+    private IChatComponent createHeader(String title, String icon) {
+        ChatComponentText header = new ChatComponentText(String.format("§6%s %s §6%s", icon, title, icon));
+        header.setChatStyle(new ChatStyle().setBold(true));
+        return header;
+    }
+
     private void sendLoginSuccessMessage(EntityPlayer player) {
-        sendMessage(player, "§aАвторизация успешна!");
+        String username = AuthEventHandler.normalizeUsername(player.getCommandSenderName());
+        PlayerData data = PlayerDataManager.getPlayerData(username);
+
+        // Отправляем заголовок
+        player.addChatMessage(createHeader("Добро пожаловать", "✦"));
+        player.addChatMessage(createSeparator());
+
+        // Информация о входе
+        player.addChatMessage(new ChatComponentText("§aВход выполнен успешно!"));
+
+        if (data != null) {
+            // Форматируем дату и время
+            String lastLogin = formatDateTime(data.getLastLoginDate());
+
+            // Добавляем информацию об аккаунте
+            player.addChatMessage(new ChatComponentText("§bПоследний вход: §e" + lastLogin));
+        }
+
+        // Добавляем информацию о безопасности
+        player.addChatMessage(createSeparator());
+        player.addChatMessage(new ChatComponentText("§a✓ §fВаша сессия защищена шифрованием"));
+        player.addChatMessage(new ChatComponentText("§a✓ §fПароль хранится в зашифрованном виде"));
+
+        // Подсказки по использованию
+        player.addChatMessage(createSeparator());
+        player.addChatMessage(new ChatComponentText("§eДоступные команды:"));
+
+        // Команда для смены пароля
+        ChatComponentText changePassword = new ChatComponentText("§7- §e/changepassword §7- сменить пароль");
+        changePassword.setChatStyle(new ChatStyle()
+                .setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText("Нажмите для выполнения")))
+                .setChatClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/auth changepassword")));
+        player.addChatMessage(changePassword);
+
+        // Команда для выхода
+        ChatComponentText logout = new ChatComponentText("§7- §e/logout §7- выйти из аккаунта");
+        logout.setChatStyle(new ChatStyle()
+                .setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText("Нажмите для выполнения")))
+                .setChatClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/auth logout")));
+        player.addChatMessage(logout);
+
+        // Завершающее сообщение
+        player.addChatMessage(createSeparator());
+        player.addChatMessage(new ChatComponentText("§aВаша безопасность - наш приоритет!"));
     }
 
     private void sendRegistrationSuccessMessage(EntityPlayer player) {
-        sendMessage(player, "§aРегистрация успешна! Вы авторизованы.");
+        String username = AuthEventHandler.normalizeUsername(player.getCommandSenderName());
+
+        // Отправляем заголовок
+        player.addChatMessage(createHeader("Регистрация завершена", "✦"));
+        player.addChatMessage(createSeparator());
+
+        // Информация о регистрации
+        player.addChatMessage(new ChatComponentText("§aПоздравляем! Вы успешно зарегистрированы!"));
+        player.addChatMessage(new ChatComponentText("§bВаш логин: §f" + username));
+
+        // Добавляем информацию о безопасности
+        player.addChatMessage(createSeparator());
+        player.addChatMessage(new ChatComponentText("§a✓ §fВаш пароль надежно зашифрован"));
+        player.addChatMessage(new ChatComponentText("§a✓ §fДанные хранятся в защищенном хранилище"));
+        player.addChatMessage(new ChatComponentText("§a✓ §fВсе соединения зашифрованы"));
+
+        // Советы по безопасности
+        player.addChatMessage(createSeparator());
+        player.addChatMessage(new ChatComponentText("§eРекомендации по безопасности:"));
+        player.addChatMessage(new ChatComponentText("§7- §fНе используйте один пароль для разных сервисов"));
+        player.addChatMessage(new ChatComponentText("§7- §fМеняйте пароль раз в 3 месяца"));
+        player.addChatMessage(new ChatComponentText("§7- §fНе сообщайте пароль третьим лицам"));
+
+        // Доступные команды
+        player.addChatMessage(createSeparator());
+        player.addChatMessage(new ChatComponentText("§eДоступные команды:"));
+
+        // Команда для смены пароля
+        ChatComponentText changePassword = new ChatComponentText("§7- §e/changepassword §7- сменить пароль");
+        changePassword.setChatStyle(new ChatStyle()
+                .setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText("Нажмите для выполнения")))
+                .setChatClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/auth changepassword")));
+        player.addChatMessage(changePassword);
+
+        // Команда для выхода
+        ChatComponentText logout = new ChatComponentText("§7- §e/logout §7- выйти из аккаунта");
+        logout.setChatStyle(new ChatStyle()
+                .setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText("Нажмите для выполнения")))
+                .setChatClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/auth logout")));
+        player.addChatMessage(logout);
+
+        // Завершающее сообщение
+        player.addChatMessage(createSeparator());
+        player.addChatMessage(new ChatComponentText("§aСпасибо за регистрацию! Ваш аккаунт защищен!"));
+    }
+
+    private void sendWelcomeMessageForNewPlayer(EntityPlayer player) {
+        // Отправляем заголовок
+        player.addChatMessage(createHeader("Добро пожаловать на сервер!", "✦"));
+        player.addChatMessage(createSeparator());
+
+        player.addChatMessage(new ChatComponentText("§eВы первый раз на этом сервере?"));
+        player.addChatMessage(new ChatComponentText("§eВам необходимо зарегистрировать аккаунт для защиты от взлома!"));
+
+        player.addChatMessage(createSeparator());
+
+        // Команда для регистрации
+        ChatComponentText registerCommand = new ChatComponentText("§7- §e/register <пароль> <подтверждение> §7- зарегистрировать аккаунт");
+        registerCommand.setChatStyle(new ChatStyle()
+                .setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText("Нажмите для открытия формы регистрации")))
+                .setChatClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, "/auth register ")));
+        player.addChatMessage(registerCommand);
+
+        player.addChatMessage(new ChatComponentText("§7- §fПример: §e/register MySecurePass123 MySecurePass123"));
+
+        player.addChatMessage(createSeparator());
+        player.addChatMessage(new ChatComponentText("§eТребования к паролю:"));
+        player.addChatMessage(new ChatComponentText("§7- §fМинимум 8 символов"));
+        player.addChatMessage(new ChatComponentText("§7- §fХотя бы одна цифра"));
+        player.addChatMessage(new ChatComponentText("§7- §fХотя бы одна заглавная буква"));
+
+        player.addChatMessage(createSeparator());
+        player.addChatMessage(new ChatComponentText("§aЗащитите свой аккаунт уже сейчас!"));
     }
 
     private void sendLogoutSuccessMessage(EntityPlayer player) {
@@ -374,10 +519,8 @@ public class AuthCommand extends CommandBase {
         sendMessage(player, "§6Админ-команды:");
         sendMessage(player, "§e/auth admin reset <игрок> §7- сбросить пароль");
         sendMessage(player, "§e/auth admin ip <игрок> §7- информация об IP");
-
         sendMessage(player, "§e/auth admin add <игрок> §7- добавить игрока в список операторов мода");
         sendMessage(player, "§e/auth admin reload §7- перезагрузить данные мода из файла");
-
         sendMessage(player, "§e/auth admin list [all|banned|5min|15min|30min|60min] §7- список игроков");
     }
 
@@ -413,9 +556,19 @@ public class AuthCommand extends CommandBase {
         sendMessage(player, String.format("§6Информация об игроке %s:", username));
         sendMessage(player, String.format("§eПоследний IP: %s", data.getLastLoginIP()));
         sendMessage(player, String.format("§eIP регистрации: %s", data.getRegistrationIP()));
-        sendMessage(player, String.format("§eДата регистрации: %s", data.getRegistrationDate()));
-        sendMessage(player, String.format("§eПоследний вход: %s", data.getLastLoginDate()));
+        sendMessage(player, String.format("§eДата регистрации: %s", formatDateTime(data.getRegistrationDate())));
+        sendMessage(player, String.format("§eПоследний вход: %s", formatDateTime(data.getLastLoginDate())));
         sendMessage(player, String.format("§eСтатус: %s", banStatus));
+    }
+
+    private String formatDateTime(long timestamp) {
+        if (timestamp <= 0) {
+            return "Нет данных";
+        }
+
+        SimpleDateFormat format = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss");
+        format.setTimeZone(TimeZone.getTimeZone("UTC")); // Используем UTC для единообразия
+        return format.format(new Date(timestamp));
     }
 
     private void handleAdminList(EntityPlayer player, String filter, int page) {

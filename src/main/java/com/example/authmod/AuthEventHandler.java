@@ -6,9 +6,13 @@ import cpw.mods.fml.common.gameevent.PlayerEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.event.ClickEvent;
+import net.minecraft.event.HoverEvent;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.management.ServerConfigurationManager;
 import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.ChatStyle;
+import net.minecraft.util.IChatComponent;
 import net.minecraft.world.World;
 import net.minecraftforge.event.entity.item.ItemTossEvent;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
@@ -80,8 +84,6 @@ public class AuthEventHandler {
             reopPlayerOnServer((EntityPlayerMP) player);
 
         }
-
-        sendPrivateMessage(player, "§aАвторизация успешна!");
     }
 
     public static void updateLoginTime(String username) {
@@ -311,14 +313,52 @@ public class AuthEventHandler {
         });
     }
 
+    private IChatComponent createSeparator() {
+        return new ChatComponentText("§8─────────────────────────────────────────────");
+    }
+
+    private IChatComponent createHeader(String title, String icon) {
+        ChatComponentText header = new ChatComponentText(String.format("§6%s %s §6%s", icon, title, icon));
+        header.setChatStyle(new ChatStyle().setBold(true));
+        return header;
+    }
+
     private void sendLoginInstructions(EntityPlayer player, String username) {
         if (player == null || player.worldObj.isRemote) return;
-
         if (Boolean.FALSE.equals(AUTHENTICATED_PLAYERS.get(username))) {
-            String message = PlayerDataManager.isPlayerRegistered(username) ? "§6Введите /auth login <пароль> для авторизации" : "§6Введите /auth register <пароль> <подтверждение> для регистрации";
+            // Отправляем заголовок
+            player.addChatMessage(createHeader("Добро пожаловать на сервер!", "✦"));
+            player.addChatMessage(createSeparator());
 
-            player.addChatMessage(new ChatComponentText(message));
-            AuthMod.logger.info("Login message sent to player: " + username);
+            if (PlayerDataManager.isPlayerRegistered(username)) {
+                player.addChatMessage(new ChatComponentText("§eВы уже зарегистрированы!"));
+                player.addChatMessage(new ChatComponentText("§eВведите команду для авторизации:"));
+
+                // Команда для входа
+                ChatComponentText loginCommand = new ChatComponentText("§7- §e/login <пароль> §7- войти в аккаунт");
+                loginCommand.setChatStyle(new ChatStyle()
+                        .setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText("Нажмите для открытия формы входа")))
+                        .setChatClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, "/auth login ")));
+                player.addChatMessage(loginCommand);
+            } else {
+                player.addChatMessage(new ChatComponentText("§eВы первый раз на этом сервере?"));
+                player.addChatMessage(new ChatComponentText("§eВам необходимо зарегистрировать аккаунт для защиты от взлома!"));
+
+                // Команда для регистрации
+                ChatComponentText registerCommand = new ChatComponentText("§7- §e/register <пароль> <подтверждение> §7- зарегистрировать аккаунт");
+                registerCommand.setChatStyle(new ChatStyle()
+                        .setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText("Нажмите для открытия формы регистрации")))
+                        .setChatClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, "/auth register ")));
+                player.addChatMessage(registerCommand);
+
+                player.addChatMessage(new ChatComponentText("§7- §fПример: §e/register MySecurePass123 MySecurePass123"));
+
+                player.addChatMessage(createSeparator());
+                player.addChatMessage(new ChatComponentText("§eТребования к паролю:"));
+                player.addChatMessage(new ChatComponentText("§7- §fМинимум 8 символов"));
+            }
+
+            player.addChatMessage(createSeparator());
         }
     }
 
@@ -398,14 +438,20 @@ public class AuthEventHandler {
 
         long currentTime = System.currentTimeMillis();
         long timeSinceLogin = currentTime - loginTime;
+        long timeLeft = (MAX_LOGIN_TIME - timeSinceLogin) / 1000;
 
-        if (timeSinceLogin > (MAX_LOGIN_TIME - 60000) && player.ticksExisted % 100 == 0) {
-            long timeLeft = (MAX_LOGIN_TIME - timeSinceLogin) / 1000;
-            sendPrivateMessage(player, "§cАвторизуйтесь в течение " + timeLeft + " секунд!");
+        // Если осталось меньше 60 секунд
+        if (timeLeft > 0 && timeLeft <= 60 && player.ticksExisted % 100 == 0) {
+            // Красный цвет при остатке менее 10 секунд
+            String color = (timeLeft <= 10) ? "§c" : "§e";
+            sendPrivateMessage(player, String.format("%sВНИМАНИЕ! §fОсталось %d сек. для авторизации!",
+                    color, timeLeft));
         }
-
-        if (player.ticksExisted % 100 == 0) {
-            sendPrivateMessage(player, "Требуется авторизация!");
+        // Регулярные напоминания
+        else if (player.ticksExisted % 200 == 0) {
+            String command = PlayerDataManager.isPlayerRegistered(username) ?
+                    "§b/auth login <пароль>" : "§b/auth register <пароль> <подтверждение>";
+            sendPrivateMessage(player, "§6Требуется авторизация: " + command);
         }
     }
 
