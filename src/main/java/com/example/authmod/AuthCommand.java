@@ -466,35 +466,6 @@ public class AuthCommand extends CommandBase {
         player.addChatMessage(new ChatComponentText("§aСпасибо за регистрацию! Ваш аккаунт защищен!"));
     }
 
-    private void sendWelcomeMessageForNewPlayer(EntityPlayer player) {
-        // Отправляем заголовок
-        player.addChatMessage(createHeader("Добро пожаловать на сервер!", "✦"));
-        player.addChatMessage(createSeparator());
-
-        player.addChatMessage(new ChatComponentText("§eВы первый раз на этом сервере?"));
-        player.addChatMessage(new ChatComponentText("§eВам необходимо зарегистрировать аккаунт для защиты от взлома!"));
-
-        player.addChatMessage(createSeparator());
-
-        // Команда для регистрации
-        ChatComponentText registerCommand = new ChatComponentText("§7- §e/register <пароль> <подтверждение> §7- зарегистрировать аккаунт");
-        registerCommand.setChatStyle(new ChatStyle()
-                .setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText("Нажмите для открытия формы регистрации")))
-                .setChatClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, "/auth register ")));
-        player.addChatMessage(registerCommand);
-
-        player.addChatMessage(new ChatComponentText("§7- §fПример: §e/register MySecurePass123 MySecurePass123"));
-
-        player.addChatMessage(createSeparator());
-        player.addChatMessage(new ChatComponentText("§eТребования к паролю:"));
-        player.addChatMessage(new ChatComponentText("§7- §fМинимум 8 символов"));
-        player.addChatMessage(new ChatComponentText("§7- §fХотя бы одна цифра"));
-        player.addChatMessage(new ChatComponentText("§7- §fХотя бы одна заглавная буква"));
-
-        player.addChatMessage(createSeparator());
-        player.addChatMessage(new ChatComponentText("§aЗащитите свой аккаунт уже сейчас!"));
-    }
-
     private void sendLogoutSuccessMessage(EntityPlayer player) {
         sendMessage(player, "§aВы успешно вышли из системы.");
     }
