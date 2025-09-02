@@ -551,7 +551,7 @@ public class AuthCommand extends CommandBase {
             return;
         }
 
-        final int pageSize = 10;
+        final int pageSize = 13;
         int totalPages = (players.size() + pageSize - 1) / pageSize;
         if (page < 1) page = 1;
         if (page > totalPages) page = totalPages;

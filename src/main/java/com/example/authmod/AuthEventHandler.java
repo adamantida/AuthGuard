@@ -22,13 +22,12 @@ import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 
 import java.lang.reflect.Field;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 
 public class AuthEventHandler {
 
     public static final long MAX_LOGIN_TIME = 3 * 60 * 1000;
+    private static final Map<String, ScheduledFuture<?>> KICK_TASKS = new ConcurrentHashMap<>();
 
     private static final int CHECK_INTERVAL = 1;
 
@@ -55,6 +54,13 @@ public class AuthEventHandler {
         return t;
     });
 
+    private static final ScheduledExecutorService SCHEDULER = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r);
+        t.setName("Auth-Timeout-Scheduler");
+        t.setDaemon(true);
+        return t;
+    });
+
     public static String normalizeUsername(String username) {
         return (username != null) ? username : "unknown";
     }
@@ -70,6 +76,8 @@ public class AuthEventHandler {
         if (player == null) return;
 
         String username = normalizeUsername(player.getCommandSenderName());
+
+        AuthEventHandler.cancelKickTask(username);
 
         AUTHENTICATED_PLAYERS.put(username, true);
         LOGIN_TIME_MAP.remove(username);
@@ -227,7 +235,9 @@ public class AuthEventHandler {
 
     @SubscribeEvent
     public void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
-        clearPlayerData(normalizeUsername(event.player.getCommandSenderName()));
+        String username = normalizeUsername(event.player.getCommandSenderName());
+        cancelKickTask(username);
+        clearPlayerData(username);
     }
 
     @SubscribeEvent
@@ -284,6 +294,8 @@ public class AuthEventHandler {
     private void handlePlayerLogin(EntityPlayer player) {
         String username = normalizeUsername(player.getCommandSenderName());
 
+        cancelKickTask(username);
+
         AUTHENTICATED_PLAYERS.put(username, false);
         LOGIN_TIME_MAP.put(username, System.currentTimeMillis());
         LOGIN_TICK_COUNTER.put(username, 0);
@@ -297,9 +309,65 @@ public class AuthEventHandler {
         initializePlayerPosition(player, username);
         POSITION_INITIALIZED.put(username, true);
 
+        scheduleKickTask(player, username);
+
         scheduleLoginMessage(player, username);
 
         AuthMod.logger.info("Player login initialized: {}", username);
+    }
+
+    private void scheduleKickTask(EntityPlayer player, String username) {
+        // Отменяем предыдущую задачу, если она существует
+        cancelKickTask(username);
+
+        // Сохраняем время начала сессии
+        long loginTime = System.currentTimeMillis();
+
+        // Запланировать кик через MAX_LOGIN_TIME
+        ScheduledFuture<?> kickTask = SCHEDULER.schedule(() -> {
+            // Проверяем, все ли еще нужен кик
+            if (Boolean.FALSE.equals(AUTHENTICATED_PLAYERS.get(username))) {
+                EntityPlayerMP playerMP = getOnlinePlayerByName(username);
+                if (playerMP != null) {
+                    try {
+                        playerMP.playerNetServerHandler.kickPlayerFromServer("Время на авторизацию истекло!");
+                        AuthMod.logger.info("Player {} kicked due to timeout", username);
+                    } catch (Exception e) {
+                        AuthMod.logger.warn("Failed to kick player {}: {}", username, e.getMessage());
+                    }
+                }
+            }
+            // Удаляем задачу из списка
+            KICK_TASKS.remove(username);
+        }, MAX_LOGIN_TIME, TimeUnit.MILLISECONDS);
+
+        // Сохраняем задачу для возможной отмены
+        KICK_TASKS.put(username, kickTask);
+    }
+
+    private static void cancelKickTask(String username) {
+        ScheduledFuture<?> task = KICK_TASKS.remove(username);
+        if (task != null) {
+            task.cancel(false);
+        }
+    }
+
+    private EntityPlayerMP getOnlinePlayerByName(String username) {
+        MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
+        if (server != null) {
+            ServerConfigurationManager configManager = server.getConfigurationManager();
+            if (configManager != null) {
+                for (Object playerObj : (Iterable<?>) configManager.playerEntityList) {
+                    if (playerObj instanceof EntityPlayerMP) {
+                        EntityPlayerMP playerMP = (EntityPlayerMP) playerObj;
+                        if (playerMP.getCommandSenderName().equalsIgnoreCase(username)) {
+                            return playerMP;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     private void scheduleLoginMessage(EntityPlayer player, String username) {
@@ -439,6 +507,8 @@ public class AuthEventHandler {
         long currentTime = System.currentTimeMillis();
         long timeSinceLogin = currentTime - loginTime;
         long timeLeft = (MAX_LOGIN_TIME - timeSinceLogin) / 1000;
+
+        if (timeLeft < 0) timeLeft = 0;
 
         // Если осталось меньше 60 секунд
         if (timeLeft > 0 && timeLeft <= 60 && player.ticksExisted % 100 == 0) {
