@@ -83,13 +83,12 @@ public class AuthEventHandler {
     /**
      * Пул потоков для отправки сообщений
      */
-    private static final ExecutorService LOGIN_MESSAGE_EXECUTOR =
-            Executors.newFixedThreadPool(2, r -> {
-                Thread t = new Thread(r);
-                t.setName("Auth-Login-Messages");
-                t.setDaemon(true);
-                return t;
-            });
+    private static final ExecutorService LOGIN_MESSAGE_EXECUTOR = Executors.newFixedThreadPool(2, r -> {
+        Thread t = new Thread(r);
+        t.setName("Auth-Login-Messages");
+        t.setDaemon(true);
+        return t;
+    });
 
 
     /**
@@ -377,9 +376,7 @@ public class AuthEventHandler {
         if (player == null || player.worldObj.isRemote) return;
 
         if (Boolean.FALSE.equals(AUTHENTICATED_PLAYERS.get(username))) {
-            String message = PlayerDataManager.isPlayerRegistered(username)
-                    ? "§6Введите /auth login <пароль> для авторизации"
-                    : "§6Введите /auth register <пароль> <подтверждение> для регистрации";
+            String message = PlayerDataManager.isPlayerRegistered(username) ? "§6Введите /auth login <пароль> для авторизации" : "§6Введите /auth register <пароль> <подтверждение> для регистрации";
 
             player.addChatMessage(new ChatComponentText(message));
             AuthMod.logger.info("Login message sent to player: " + username);
@@ -514,9 +511,7 @@ public class AuthEventHandler {
         double[] lastPos = LAST_VALID_POSITION.get(username);
         if (lastPos == null) return false;
 
-        return Math.abs(player.posX - lastPos[0]) <= POSITION_CHECK_TOLERANCE &&
-                Math.abs(player.posY - lastPos[1]) <= 0.5 &&
-                Math.abs(player.posZ - lastPos[2]) <= POSITION_CHECK_TOLERANCE;
+        return Math.abs(player.posX - lastPos[0]) <= POSITION_CHECK_TOLERANCE && Math.abs(player.posY - lastPos[1]) <= 0.5 && Math.abs(player.posZ - lastPos[2]) <= POSITION_CHECK_TOLERANCE;
     }
 
     private void handlePlayerInteraction(PlayerInteractEvent event) {

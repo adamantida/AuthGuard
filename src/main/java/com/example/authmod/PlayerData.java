@@ -19,6 +19,7 @@ public class PlayerData {
      * Дата регистрации
      */
     private final long registrationDate;
+    private final long lastLoginDate;
 
     /**
      * IP-адрес регистрации (новое поле)
@@ -49,11 +50,11 @@ public class PlayerData {
      * @param isBanned         Статус бана
      * @param isOperator       Статус оператора (новый параметр)
      */
-    public PlayerData(String username, String hashedPassword, long registrationDate,
-                      String registrationIP, String lastLoginIP, boolean isBanned, boolean isOperator) {
+    public PlayerData(String username, String hashedPassword, long registrationDate, long lastLoginDate, String registrationIP, String lastLoginIP, boolean isBanned, boolean isOperator) {
         this.username = username;
         this.hashedPassword = hashedPassword;
         this.registrationDate = registrationDate;
+        this.lastLoginDate = lastLoginDate;
         this.registrationIP = registrationIP;
         this.lastLoginIP = lastLoginIP;
         this.isBanned = isBanned;
@@ -63,8 +64,8 @@ public class PlayerData {
     /**
      * Конструктор для совместимости со старыми данными
      */
-    public PlayerData(String username, String hashedPassword, long registrationDate) {
-        this(username, hashedPassword, registrationDate, "unknown", "unknown", false, false);
+    public PlayerData(String username, String hashedPassword, long registrationDate, long lastLoginDate) {
+        this(username, hashedPassword, registrationDate, lastLoginDate, "unknown", "unknown", false, false);
     }
 
     public String getUsername() {
@@ -78,6 +79,8 @@ public class PlayerData {
     public long getRegistrationDate() {
         return registrationDate;
     }
+
+    public long getLastLoginDate() { return lastLoginDate; }
 
     public String getRegistrationIP() {
         return registrationIP;

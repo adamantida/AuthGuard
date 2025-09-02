@@ -113,16 +113,23 @@ public class AuthCommand extends CommandBase {
         }
     }
 
-
     @Override
     public List<?> addTabCompletionOptions(ICommandSender sender, String[] args) {
-
         if (args.length == 1) {
             return getListOfStringsMatchingLastWord(args, "register", "r", "login", "l", "logout", "out", "changepassword", "admin");
         } else if (args.length == 2 && args[0].equalsIgnoreCase("admin")) {
             return getListOfStringsMatchingLastWord(args, "reset", "list", "ip", "add", "reload");
-        } else if (args.length == 3 && args[0].equalsIgnoreCase("admin") && args[1].equalsIgnoreCase("list")) {
-            return getListOfStringsMatchingLastWord(args, "all", "banned", "5min", "15min", "30min", "60min");
+        } else if (args.length == 3 && args[0].equalsIgnoreCase("admin")) {
+            // Автозаполнение ников для reset, ip, add
+            if (Arrays.asList("reset", "ip", "add").contains(args[1].toLowerCase())) {
+                // Получаем список зарегистрированных игроков из PlayerDataManager
+                List<String> playerNames = PlayerDataManager.getAllPlayerNames();
+                return getListOfStringsMatchingLastWord(args, playerNames.toArray(new String[0]));
+            }
+            // Фильтры для list
+            else if (args[1].equalsIgnoreCase("list")) {
+                return getListOfStringsMatchingLastWord(args, "all", "banned", "5min", "15min", "30min", "60min");
+            }
         }
         return null;
     }
@@ -406,44 +413,18 @@ public class AuthCommand extends CommandBase {
         }
 
         String banStatus = data.isBanned() ? "§cЗАБАНЕН" : "§aАКТИВЕН";
-        String message = String.format("§6Информация об игроке %s:\n" +
-                        "§eПоследний IP: %s\n" +
-                        "§eIP регистрации: %s\n" +
-                        "§eСтатус: %s",
-                username, data.getLastLoginIP(), data.getRegistrationIP(), banStatus);
 
-        sendMessage(player, message);
+        sendMessage(player, String.format("§6Информация об игроке %s:", username));
+        sendMessage(player, String.format("§eПоследний IP: %s", data.getLastLoginIP()));
+        sendMessage(player, String.format("§eIP регистрации: %s", data.getRegistrationIP()));
+        sendMessage(player, String.format("§eСтатус: %s", banStatus));
     }
 
     private void handleAdminList(EntityPlayer player, String filter, int page) {
         List<PlayerData> players = PlayerDataManager.getAllPlayers();
 
-
-        long currentTime = System.currentTimeMillis();
-        long fiveMinutesAgo = currentTime - 5 * 60 * 1000;
-        long fifteenMinutesAgo = currentTime - 15 * 60 * 1000;
-        long thirtyMinutesAgo = currentTime - 30 * 60 * 1000;
-        long sixtyMinutesAgo = currentTime - 60 * 60 * 1000;
-
-        switch (filter.toLowerCase()) {
-            case "banned":
-                players = players.stream().filter(PlayerData::isBanned).collect(Collectors.toList());
-                break;
-            case "5min":
-                players = players.stream().filter(p -> p.getRegistrationDate() >= fiveMinutesAgo).collect(Collectors.toList());
-                break;
-            case "15min":
-                players = players.stream().filter(p -> p.getRegistrationDate() >= fifteenMinutesAgo).collect(Collectors.toList());
-                break;
-            case "30min":
-                players = players.stream().filter(p -> p.getRegistrationDate() >= thirtyMinutesAgo).collect(Collectors.toList());
-                break;
-            case "60min":
-                players = players.stream().filter(p -> p.getRegistrationDate() >= sixtyMinutesAgo).collect(Collectors.toList());
-                break;
-            default:
-                break;
-        }
+        // Используем applyFilter для фильтрации списка игроков
+        players = applyFilter(players, filter);
 
         if (players.isEmpty()) {
             sendMessage(player, "§cНет игроков, соответствующих фильтру: " + filter);
@@ -458,27 +439,37 @@ public class AuthCommand extends CommandBase {
         int end = Math.min(start + pageSize, players.size());
 
         List<PlayerData> pageData = players.subList(start, end);
-
         sendAdminListHeader(player, filter, page, totalPages);
 
         for (PlayerData data : pageData) {
-            String banStatus = data.isBanned() ? "§cЗАБАНЕН" : "§aАКТИВЕН";
-            String message = String.format("§e%s §7| §bПосл. IP: %s §7| §bРег. IP: %s §7| §eСтатус: %s",
+            String banStatus = data.isBanned() ? "§cБ" : "§aА";
+            String message = String.format("§e%s §7| §bП.IP: %s §7| §bР.IP: %s §7| §eСтат: %s",
                     data.getUsername(), data.getLastLoginIP(), data.getRegistrationIP(), banStatus);
             sendMessage(player, message);
         }
+
+        sendPaginationControls(player, page, totalPages, filter);
         sendMessage(player, String.format("§6Страница %d/%d (Найдено: %d)", page, totalPages, players.size()));
     }
 
     private List<PlayerData> applyFilter(List<PlayerData> players, String filter) {
         long currentTime = System.currentTimeMillis();
         long fiveMinutesAgo = currentTime - 5 * 60 * 1000;
+        long fifteenMinutesAgo = currentTime - 15 * 60 * 1000;
+        long thirtyMinutesAgo = currentTime - 30 * 60 * 1000;
+        long sixtyMinutesAgo = currentTime - 60 * 60 * 1000;
 
-        switch (filter) {
+        switch (filter.toLowerCase()) {
             case "banned":
                 return players.stream().filter(PlayerData::isBanned).collect(Collectors.toList());
             case "5min":
-                return players.stream().filter(p -> p.getRegistrationDate() >= fiveMinutesAgo).collect(Collectors.toList());
+                return players.stream().filter(p -> p.getLastLoginDate() >= fiveMinutesAgo).collect(Collectors.toList());
+            case "15min":
+                return players.stream().filter(p -> p.getLastLoginDate() >= fifteenMinutesAgo).collect(Collectors.toList());
+            case "30min":
+                return players.stream().filter(p -> p.getLastLoginDate() >= thirtyMinutesAgo).collect(Collectors.toList());
+            case "60min":
+                return players.stream().filter(p -> p.getLastLoginDate() >= sixtyMinutesAgo).collect(Collectors.toList());
             default:
                 return players;
         }
@@ -513,7 +504,7 @@ public class AuthCommand extends CommandBase {
     }
 
     private void sendAdminListHeader(EntityPlayer player, String filter, int currentPage, int totalPages) {
-        IChatComponent header = new ChatComponentText("§6Список игроков | Фильтры: ");
+        IChatComponent header = new ChatComponentText("§6");
 
         ChatComponentText allBtn = new ChatComponentText("[Все] ");
         allBtn.setChatStyle(new ChatStyle()

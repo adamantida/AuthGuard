@@ -75,7 +75,8 @@ public class PlayerDataManager {
      */
     public static void registerPlayer(String username, String password, String ip) {
         String hashedPassword = AuthHelper.hashPassword(password);
-        PlayerData data = new PlayerData(username, hashedPassword, System.currentTimeMillis(),
+        long now = System.currentTimeMillis();
+        PlayerData data = new PlayerData(username, hashedPassword, now, now,
                 ip, ip, false, false);
         PLAYER_DATA_MAP.put(username, data);
         scheduleSave();
@@ -86,11 +87,13 @@ public class PlayerDataManager {
      */
     public static void updateLoginData(String username, String ip) {
         PlayerData oldData = PLAYER_DATA_MAP.get(username);
+        long now = System.currentTimeMillis();
         if (oldData != null) {
             PlayerData newData = new PlayerData(
                     oldData.getUsername(),
                     oldData.getHashedPassword(),
                     oldData.getRegistrationDate(),
+                    now,
                     oldData.getRegistrationIP(),
                     ip,
                     oldData.isBanned(),
@@ -115,13 +118,14 @@ public class PlayerDataManager {
         PlayerData oldData = PLAYER_DATA_MAP.get(username);
         if (oldData != null) {
 
-            String tempPassword = "temp1234";
+            String tempPassword = "12345678";
             String hashedPassword = AuthHelper.hashPassword(tempPassword);
 
             PlayerData newData = new PlayerData(
                     oldData.getUsername(),
                     hashedPassword,
                     oldData.getRegistrationDate(),
+                    oldData.getLastLoginDate(),
                     oldData.getRegistrationIP(),
                     oldData.getLastLoginIP(),
                     oldData.isBanned(),
@@ -143,6 +147,7 @@ public class PlayerDataManager {
                     oldData.getUsername(),
                     hashedPassword,
                     oldData.getRegistrationDate(),
+                    oldData.getLastLoginDate(),
                     oldData.getRegistrationIP(),
                     oldData.getLastLoginIP(),
                     oldData.isBanned(),
@@ -162,6 +167,7 @@ public class PlayerDataManager {
                     oldData.getUsername(),
                     oldData.getHashedPassword(),
                     oldData.getRegistrationDate(),
+                    oldData.getLastLoginDate(),
                     oldData.getRegistrationIP(),
                     oldData.getLastLoginIP(),
                     banned,
@@ -195,8 +201,19 @@ public class PlayerDataManager {
 
                     String registrationIP = "unknown";
                     String lastLoginIP = "unknown";
+                    long registrationDate = 0;
+                    long lastLoginDate = 0;
                     boolean isBanned = false;
                     boolean isOperator = false;
+
+                    if (playerJson.has("registrationDate")) {
+                        registrationDate = playerJson.get("registrationDate").getAsLong();
+                    }
+                    if (playerJson.has("lastLoginDate")) {
+                        lastLoginDate = playerJson.get("lastLoginDate").getAsLong();
+                    } else {
+                        lastLoginDate = registrationDate;
+                    }
 
                     if (playerJson.has("registrationIP")) {
                         registrationIP = playerJson.get("registrationIP").getAsString();
@@ -217,7 +234,8 @@ public class PlayerDataManager {
                     PlayerData data = new PlayerData(
                             username,
                             playerJson.get("hashedPassword").getAsString(),
-                            playerJson.get("registrationDate").getAsLong(),
+                            registrationDate,
+                            lastLoginDate,
                             registrationIP,
                             lastLoginIP,
                             isBanned,
@@ -286,6 +304,7 @@ public class PlayerDataManager {
                     oldData.getUsername(),
                     oldData.getHashedPassword(),
                     oldData.getRegistrationDate(),
+                    oldData.getLastLoginDate(),
                     oldData.getRegistrationIP(),
                     oldData.getLastLoginIP(),
                     oldData.isBanned(),
