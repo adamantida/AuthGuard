@@ -22,67 +22,28 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/**
- * Обработчик событий аутентификации.
- * Контролирует состояние авторизации игроков и ограничивает действия
- * неавторизованных пользователей.
- */
 public class AuthEventHandler {
 
-    /**
-     * Максимальное время на авторизацию (3 минуты)
-     */
     public static final long MAX_LOGIN_TIME = 3 * 60 * 1000;
 
-    /**
-     * Интервал проверки (раз в 1 тик = 0.05 секунды для более жесткого контроля)
-     */
     private static final int CHECK_INTERVAL = 1;
 
-    /**
-     * Допуск позиции для уменьшения частоты телепортации
-     */
     private static final double POSITION_TOLERANCE = 0.1; // Уменьшено
 
-    /**
-     * Допуск для проверки позиции
-     */
     private static final double POSITION_CHECK_TOLERANCE = 0.05;
 
-    /**
-     * Интервал для обновления времени активности
-     */
     private static final int ACTIVITY_UPDATE_INTERVAL = 20;
 
-
-    /**
-     * Последние валидные позиции игроков
-     */
     private static final Map<String, double[]> LAST_VALID_POSITION = new ConcurrentHashMap<>();
 
-    /**
-     * Счетчик тиков после входа
-     */
     private static final Map<String, Integer> LOGIN_TICK_COUNTER = new ConcurrentHashMap<>();
 
-    /**
-     * Флаг инициализации позиции
-     */
     private static final Map<String, Boolean> POSITION_INITIALIZED = new ConcurrentHashMap<>();
 
-    /**
-     * Флаг аутентификации игроков
-     */
     private static final Map<String, Boolean> AUTHENTICATED_PLAYERS = new ConcurrentHashMap<>();
 
-    /**
-     * Время последней активности
-     */
     private static final Map<String, Long> LOGIN_TIME_MAP = new ConcurrentHashMap<>();
 
-    /**
-     * Пул потоков для отправки сообщений
-     */
     private static final ExecutorService LOGIN_MESSAGE_EXECUTOR = Executors.newFixedThreadPool(2, r -> {
         Thread t = new Thread(r);
         t.setName("Auth-Login-Messages");
@@ -90,17 +51,10 @@ public class AuthEventHandler {
         return t;
     });
 
-
-    /**
-     * Нормализует имя пользователя (приводит к нижнему регистру)
-     */
     public static String normalizeUsername(String username) {
         return (username != null) ? username : "unknown";
     }
 
-    /**
-     * Проверяет, авторизован ли игрок
-     */
     public static boolean isPlayerAuthenticated(EntityPlayer player) {
         if (player == null) return false;
 
@@ -108,9 +62,6 @@ public class AuthEventHandler {
         return Boolean.TRUE.equals(AUTHENTICATED_PLAYERS.get(username));
     }
 
-    /**
-     * Аутентифицирует игрока
-     */
     public static void authenticatePlayer(EntityPlayer player) {
         if (player == null) return;
 
@@ -133,9 +84,6 @@ public class AuthEventHandler {
         sendPrivateMessage(player, "§aАвторизация успешна!");
     }
 
-    /**
-     * Обновляет время последней активности игрока
-     */
     public static void updateLoginTime(String username) {
         String normalizedUsername = normalizeUsername(username);
         if (LOGIN_TIME_MAP.containsKey(normalizedUsername)) {
@@ -143,9 +91,6 @@ public class AuthEventHandler {
         }
     }
 
-    /**
-     * Возвращает IP-адрес игрока
-     */
     public static String getPlayerIP(EntityPlayerMP player) {
         try {
             String ip = player.getPlayerIP();
@@ -159,9 +104,6 @@ public class AuthEventHandler {
         }
     }
 
-    /**
-     * Завершает работу пула потоков при выключении сервера
-     */
     public static void shutdown() {
         LOGIN_MESSAGE_EXECUTOR.shutdown();
     }
@@ -201,9 +143,6 @@ public class AuthEventHandler {
         }
     }
 
-    /**
-     * Очищает данные игрока при выходе
-     */
     public static void clearPlayerData(String username) {
         AUTHENTICATED_PLAYERS.remove(username);
         LOGIN_TIME_MAP.remove(username);

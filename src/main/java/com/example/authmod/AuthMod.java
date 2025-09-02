@@ -19,9 +19,6 @@ public class AuthMod {
     /** Логгер для отладки и информации */
     public static Logger logger;
 
-
-
-
     @EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         logger = event.getModLog();

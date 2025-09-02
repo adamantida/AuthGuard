@@ -5,17 +5,9 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.ChatComponentText;
 import net.minecraftforge.event.ServerChatEvent;
 
-/**
- * Обработчик событий чата.
- * Контролирует отправку сообщений неавторизованными игроками.
- */
 public class ChatEventHandler {
 
-    /**
-     * Интервал отправки сообщений (раз в 5 секунд)
-     */
     private static final int MESSAGE_INTERVAL = 100;
-
 
     @SubscribeEvent
     public void onChat(ServerChatEvent event) {
@@ -35,7 +27,6 @@ public class ChatEventHandler {
             handleChatMessage(event, player);
         }
     }
-
 
     private void handleCommandMessage(ServerChatEvent event, EntityPlayer player) {
 

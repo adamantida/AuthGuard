@@ -15,10 +15,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Синхронизатор статуса бана игроков.
- * Периодически проверяет статус бана, читая файл banned-players.json.
- */
 public class BanStatusSyncer {
     private static final int SYNC_INTERVAL = 20 * 30; // Каждые 30 секунд (можно настроить)
     private int ticks = 0;
@@ -104,10 +100,6 @@ public class BanStatusSyncer {
         }
     }
 
-    /**
-     * Сбрасывает статус бана для всех игроков на false.
-     * Вызывается в случае ошибки или если файл не существует.
-     */
     private void resetBanStatus() {
         AuthMod.logger.warn("[BanStatusSyncer] Resetting ban status for all players to false.");
         List<String> allPlayerNames = PlayerDataManager.getAllPlayerNames();

@@ -5,31 +5,14 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 
-/**
- * Вспомогательный класс для хеширования паролей.
- * Использует SHA-256 с солью для безопасного хранения паролей.
- */
 public class AuthHelper {
 
-    /**
-     * Генератор случайных чисел для создания соли
-     */
     private static final SecureRandom RANDOM = new SecureRandom();
 
-    /**
-     * Массив символов для hex-кодирования
-     */
     private static final char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
 
-    /**
-     * Количество итераций для хеширования
-     */
     private static final int HASH_ITERATIONS = 10000;
 
-
-    /**
-     * Хеширует пароль с использованием соли и SHA-256
-     */
     public static String hashPassword(String password) {
         try {
 
@@ -48,9 +31,6 @@ public class AuthHelper {
         }
     }
 
-    /**
-     * Проверяет пароль на соответствие сохраненному хешу
-     */
     public static boolean verifyPassword(String password, String storedHash) {
         try {
             if (storedHash == null || storedHash.length() % 2 != 0) {
@@ -73,10 +53,6 @@ public class AuthHelper {
         }
     }
 
-
-    /**
-     * Вычисляет хэш пароля с использованием соли и множественных итераций
-     */
     private static byte[] hashWithSalt(String password, byte[] salt) throws NoSuchAlgorithmException {
         MessageDigest md = MessageDigest.getInstance("SHA-256");
 
@@ -93,9 +69,6 @@ public class AuthHelper {
         return hashed;
     }
 
-    /**
-     * Преобразует массив байтов в hex-строку
-     */
     private static String bytesToHex(byte[] bytes) {
         char[] hexChars = new char[bytes.length * 2];
         for (int i = 0; i < bytes.length; i++) {
@@ -106,9 +79,6 @@ public class AuthHelper {
         return new String(hexChars);
     }
 
-    /**
-     * Преобразует hex-строку в массив байтов
-     */
     private static byte[] hexToBytes(String hex) {
         int len = hex.length();
         byte[] data = new byte[len / 2];

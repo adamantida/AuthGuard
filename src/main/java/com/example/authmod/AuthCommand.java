@@ -5,7 +5,6 @@ import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.event.ClickEvent;
-import net.minecraft.event.HoverEvent;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.ChatStyle;
 import net.minecraft.util.EnumChatFormatting;
@@ -124,7 +123,6 @@ public class AuthCommand extends CommandBase {
         }
         return null;
     }
-
 
     private void handleRegistration(EntityPlayer player, String username, String[] args) {
 
@@ -442,24 +440,26 @@ public class AuthCommand extends CommandBase {
         sendAdminListHeader(player, filter, page, totalPages);
 
         // Отправляем заголовок таблицы
-        sendMessage(player, "§8────────────────────────────────────────────────");
-        sendMessage(player, "§7Игрок         §8| §7Последний IP      §8| §7Рег. IP        §8| §7Статус");
-        sendMessage(player, "§8────────────────────────────────────────────────");
+        sendMessage(player, "§8─────────────────────────────────────────────");
+        sendMessage(player, "§7Игрок             §8│ §7Последний IP          §8│ §7Рег. IP          §8│ §7Статус");
+        sendMessage(player, "§8─────────────────────────────────────────────");
 
         // Форматируем и выводим данные игроков
         for (PlayerData data : pageData) {
             String banStatus = data.isBanned() ? "§cБан" : "§aАктив";
 
-            // Форматируем каждую колонку с учетом цветовых кодов
-            String username = formatWithColor("§f" + data.getUsername(), 14);
-            String lastIP = formatWithColor("§b" + data.getLastLoginIP(), 16);
-            String regIP = formatWithColor("§3" + data.getRegistrationIP(), 16);
+            // Форматируем каждую колонку отдельно с фиксированной шириной
+            String username = padRight(data.getUsername(), 20);
+            String lastIP = padRight(data.getLastLoginIP(), 16);
+            String regIP = padRight(data.getRegistrationIP(), 16);
 
-            String message = String.format("%s §8| %s §8| %s §8| %s", username, lastIP, regIP, banStatus);
+            // Применяем цвета ТОЛЬКО после выравнивания
+            String message = String.format("§f%s §8│ §b%s §8│ §3%s §8│ %s",
+                    username, lastIP, regIP, banStatus);
             sendMessage(player, message);
         }
 
-        sendMessage(player, "§8────────────────────────────────────────────────");
+        sendMessage(player, "§8─────────────────────────────────────────────");
 
         // Отправляем пагинацию и статистику
         sendMessage(player, String.format("§6Страница %d/%d §8│ §7Найдено: §f%d §8│ §7Фильтр: %s",
@@ -467,46 +467,22 @@ public class AuthCommand extends CommandBase {
         sendPaginationControls(player, page, totalPages, filter);
     }
 
-    private String formatWithColor(String text, int width) {
-        // Удаляем цветовые коды для расчета видимой длины
-        String cleanText = stripColorCodes(text);
-
-        // Обрезаем текст до нужной длины
-        if (cleanText.length() > width) {
-            cleanText = cleanText.substring(0, width);
-
-            // Восстанавливаем цветовые коды в обрезанном тексте
-            StringBuilder result = new StringBuilder();
-            boolean isColorCode = false;
-            for (int i = 0; i < text.length() && result.length() < cleanText.length(); i++) {
-                char c = text.charAt(i);
-                if (c == '§') {
-                    isColorCode = true;
-                    result.append(c);
-                } else if (isColorCode) {
-                    isColorCode = false;
-                    result.append(c);
-                } else {
-                    result.append(c);
-                }
-            }
-            text = result.toString();
+    private String padRight(String s, int n) {
+        if (s == null) {
+            s = "";
         }
 
-        int visibleLength = cleanText.length();
-        int padding = width - visibleLength;
-        if (padding > 0) {
-            StringBuilder spaces = new StringBuilder(text);
-            for (int i = 0; i < padding; i++) {
-                spaces.append(' ');
-            }
-            return spaces.toString();
+        // Обрезаем строку, если она длиннее нужной
+        if (s.length() > n) {
+            return s.substring(0, n);
         }
-        return text;
-    }
 
-    private String stripColorCodes(String input) {
-        return input.replaceAll("§[0-9a-fk-or]", "");
+        // Добавляем пробелы, если строка короче нужной
+        StringBuilder sb = new StringBuilder(s);
+        while (sb.length() < n) {
+            sb.append(' ');
+        }
+        return sb.toString();
     }
 
     private List<PlayerData> applyFilter(List<PlayerData> players, String filter) {
@@ -535,7 +511,6 @@ public class AuthCommand extends CommandBase {
     private void sendPaginationControls(EntityPlayer player, int currentPage, int totalPages, String filter) {
         IChatComponent controls = new ChatComponentText("");
 
-        // Блок навигации
         IChatComponent navBlock = new ChatComponentText("§6« ");
         navBlock.setChatStyle(new ChatStyle()
                 .setColor(EnumChatFormatting.DARK_GRAY)
@@ -544,7 +519,6 @@ public class AuthCommand extends CommandBase {
                 .setUnderlined(currentPage > 1));
         controls.appendSibling(navBlock);
 
-        // Кнопка "Назад"
         if (currentPage > 1) {
             ChatComponentText prevBtn = new ChatComponentText("← ");
             prevBtn.setChatStyle(new ChatStyle()
@@ -554,12 +528,10 @@ public class AuthCommand extends CommandBase {
             controls.appendSibling(prevBtn);
         }
 
-        // Информация о странице
         ChatComponentText pageInfo = new ChatComponentText(String.format("§e%d§7/§e%d ", currentPage, totalPages));
         pageInfo.setChatStyle(new ChatStyle().setBold(true));
         controls.appendSibling(pageInfo);
 
-        // Кнопка "Вперёд"
         if (currentPage < totalPages) {
             ChatComponentText nextBtn = new ChatComponentText("→");
             nextBtn.setChatStyle(new ChatStyle()
@@ -569,7 +541,6 @@ public class AuthCommand extends CommandBase {
             controls.appendSibling(nextBtn);
         }
 
-        // Блок конца
         IChatComponent endBlock = new ChatComponentText(" §6»");
         endBlock.setChatStyle(new ChatStyle()
                 .setColor(EnumChatFormatting.DARK_GRAY)
@@ -578,7 +549,6 @@ public class AuthCommand extends CommandBase {
                 .setUnderlined(currentPage < totalPages));
         controls.appendSibling(endBlock);
 
-        // Статистика
         ChatComponentText stats = new ChatComponentText(String.format(" §8| §7Найдено: §f%d", PlayerDataManager.getAllPlayers().size()));
         controls.appendSibling(stats);
 
@@ -612,25 +582,34 @@ public class AuthCommand extends CommandBase {
     private ChatComponentText createFilterButton(String name, String filterValue, String currentFilter) {
         String icon = "";
         switch (filterValue) {
-            case "all": icon = "👤"; break;
-            case "banned": icon = "⛔"; break;
-            case "5min": icon = "🟢"; break;
-            case "15min": icon = "🟡"; break;
-            case "30min": icon = "🟠"; break;
-            case "60min": icon = "🔴"; break;
+            case "all":
+                icon = "\uD83C\uDF10";
+                break;
+            case "banned":
+                icon = "⛔";
+                break;
+            case "5min":
+                icon = "⏱";
+                break;
+            case "15min":
+                icon = "\uD83D\uDD52";
+                break;
+            case "30min":
+                icon = "\uD83D\uDD55";
+                break;
+            case "60min":
+                icon = "⏰";
+                break;
         }
 
-        // Создаем текст кнопки с иконкой
         ChatComponentText btn = new ChatComponentText(String.format("%s [%s]", icon, name));
         ChatStyle style = new ChatStyle();
 
-        // Выделяем текущий фильтр жирным шрифтом и другим цветом [[4]]
         if (filterValue.equals(currentFilter)) {
             style.setColor(EnumChatFormatting.YELLOW);
             style.setBold(true);
             style.setUnderlined(true);
         } else {
-            // Цвета для неактивных фильтров
             switch (filterValue) {
                 case "all":
                     style.setColor(EnumChatFormatting.GREEN);
@@ -644,7 +623,6 @@ public class AuthCommand extends CommandBase {
             }
         }
 
-        // Настраиваем клик для изменения фильтра
         btn.setChatStyle(style.setChatClickEvent(new ClickEvent(
                 ClickEvent.Action.RUN_COMMAND,
                 "/auth admin list " + filterValue
@@ -655,13 +633,20 @@ public class AuthCommand extends CommandBase {
 
     private String getFilterDisplayName(String filter) {
         switch (filter) {
-            case "all": return "Все игроки";
-            case "banned": return "В бане";
-            case "5min": return "Активные (5м)";
-            case "15min": return "Активные (15м)";
-            case "30min": return "Активные (30м)";
-            case "60min": return "Активные (60м)";
-            default: return filter;
+            case "all":
+                return "Все игроки";
+            case "banned":
+                return "В бане";
+            case "5min":
+                return "Активные (5м)";
+            case "15min":
+                return "Активные (15м)";
+            case "30min":
+                return "Активные (30м)";
+            case "60min":
+                return "Активные (60м)";
+            default:
+                return filter;
         }
     }
 

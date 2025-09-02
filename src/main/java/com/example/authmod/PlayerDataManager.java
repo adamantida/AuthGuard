@@ -15,64 +15,37 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Отвечает за сохранение и загрузку данных об авторизации.
  */
 public class PlayerDataManager {
-
-    /**
-     * Gson для сериализации/десериализации
-     */
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    /**
-     * Карта данных игроков
-     */
+
     private static final Map<String, PlayerData> PLAYER_DATA_MAP = new ConcurrentHashMap<>();
-    /**
-     * Задержка перед сохранением (10 секунд)
-     */
+
     private static final int SAVE_DELAY = 20 * 10;
-    /**
-     * Флаг необходимости сохранения
-     */
+
     private static final AtomicBoolean savePending = new AtomicBoolean(false);
-    /**
-     * Пул потоков для отложенного сохранения
-     */
-    private static final ScheduledExecutorService SAVE_EXECUTOR =
-            Executors.newSingleThreadScheduledExecutor(r -> {
+
+    private static final ScheduledExecutorService SAVE_EXECUTOR = Executors.newSingleThreadScheduledExecutor(r -> {
                 Thread t = new Thread(r);
                 t.setName("Auth-Save-Worker");
                 t.setDaemon(true);
                 return t;
             });
-    /**
-     * Файл для хранения данных
-     */
+
     private static File DATA_FILE;
 
-    /**
-     * Инициализирует менеджер данных
-     */
     public static void init(File configDir) {
         DATA_FILE = new File(configDir, "authdata.json");
         loadData();
     }
 
-    /**
-     * Проверяет, зарегистрирован ли игрок
-     */
     public static boolean isPlayerRegistered(String username) {
         return PLAYER_DATA_MAP.containsKey(username);
     }
 
-    /**
-     * Возвращает хеш пароля игрока
-     */
     public static String getPlayerHash(String username) {
         PlayerData data = PLAYER_DATA_MAP.get(username);
         return (data != null) ? data.getHashedPassword() : null;
     }
 
-    /**
-     * Регистрирует нового игрока
-     */
     public static void registerPlayer(String username, String password, String ip) {
         String hashedPassword = AuthHelper.hashPassword(password);
         long now = System.currentTimeMillis();
@@ -82,9 +55,6 @@ public class PlayerDataManager {
         scheduleSave();
     }
 
-    /**
-     * Обновляет данные о последнем входе
-     */
     public static void updateLoginData(String username, String ip) {
         PlayerData oldData = PLAYER_DATA_MAP.get(username);
         long now = System.currentTimeMillis();
@@ -104,16 +74,10 @@ public class PlayerDataManager {
         }
     }
 
-    /**
-     * Возвращает данные игрока
-     */
     public static PlayerData getPlayerData(String username) {
         return PLAYER_DATA_MAP.get(username);
     }
 
-    /**
-     * Сбрасывает пароль игрока
-     */
     public static boolean resetPlayerPassword(String username) {
         PlayerData oldData = PLAYER_DATA_MAP.get(username);
         if (oldData != null) {
@@ -178,16 +142,10 @@ public class PlayerDataManager {
         }
     }
 
-    /**
-     * Получает список всех игроков
-     */
     public static List<PlayerData> getAllPlayers() {
         return new ArrayList<>(PLAYER_DATA_MAP.values());
     }
 
-    /**
-     * Загружает данные из файла
-     */
     private static void loadData() {
         if (DATA_FILE.exists()) {
             try (Reader reader = new FileReader(DATA_FILE)) {
@@ -257,9 +215,6 @@ public class PlayerDataManager {
         }
     }
 
-    /**
-     * Планирует сохранение данных
-     */
     private static void scheduleSave() {
         if (savePending.getAndSet(true)) {
             return;
@@ -271,9 +226,6 @@ public class PlayerDataManager {
         }, SAVE_DELAY, TimeUnit.MILLISECONDS);
     }
 
-    /**
-     * Сохраняет данные в файл
-     */
     private static void saveData() {
         try (Writer writer = new FileWriter(DATA_FILE)) {
             GSON.toJson(PLAYER_DATA_MAP, writer);
