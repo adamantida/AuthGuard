@@ -150,7 +150,7 @@ public class PlayerDataManager {
         if (DATA_FILE.exists()) {
             try (Reader reader = new FileReader(DATA_FILE)) {
 
-                JsonObject json = JsonParser.parseReader(reader).getAsJsonObject();
+                JsonObject json = new JsonParser().parse(reader).getAsJsonObject();
                 Map<String, PlayerData> loadedData = new HashMap<>();
 
                 for (Map.Entry<String, JsonElement> entry : json.entrySet()) {

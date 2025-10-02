@@ -61,7 +61,7 @@ public class BanStatusSyncer {
             Set<String> currentBannedUsernames = new HashSet<>();
 
             try (FileReader reader = new FileReader(bannedPlayersFile)) {
-                JsonElement rootElement = JsonParser.parseReader(reader);
+                JsonElement rootElement = new JsonParser().parse(reader);
                 if (rootElement.isJsonArray()) {
                     JsonArray banArray = rootElement.getAsJsonArray();
                     for (JsonElement element : banArray) {

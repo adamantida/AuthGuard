@@ -500,16 +500,13 @@ public class AuthEventHandler {
         long timeSinceLogin = currentTime - loginTime;
         long timeLeft = (MAX_LOGIN_TIME - timeSinceLogin) / 1000;
 
-        if (timeLeft < 0) timeLeft = 0;
+        if (timeLeft < 0) return;
 
-        // Если осталось меньше 60 секунд
-        if (timeLeft > 0 && timeLeft <= 60 && player.ticksExisted % 100 == 0) {
-            // Красный цвет при остатке менее 10 секунд
+        if (timeLeft <= 60 && !isPlayerAuthenticated(player) && player.ticksExisted % 100 == 0) {
             String color = (timeLeft <= 10) ? "§c" : "§e";
             sendPrivateMessage(player, String.format("%sВНИМАНИЕ! §fОсталось %d сек. для авторизации!",
                     color, timeLeft));
         }
-        // Регулярные напоминания
         else if (player.ticksExisted % 200 == 0) {
             String command = PlayerDataManager.isPlayerRegistered(username) ?
                     "§b/auth login <пароль>" : "§b/auth register <пароль> <подтверждение>";
