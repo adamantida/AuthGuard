@@ -1,9 +1,10 @@
 package com.example.authmod;
 
-import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
 
 public class AuthHelper {
 
@@ -26,7 +27,7 @@ public class AuthHelper {
             System.arraycopy(hashedPassword, 0, combined, salt.length, hashedPassword.length);
 
             return bytesToHex(combined);
-        } catch (NoSuchAlgorithmException e) {
+        } catch (RuntimeException e) {
             throw new RuntimeException("Ошибка хэширования пароля", e);
         }
     }
@@ -47,26 +48,20 @@ public class AuthHelper {
             byte[] testHash = hashWithSalt(password, salt);
 
             return MessageDigest.isEqual(originalHash, testHash);
-        } catch (NoSuchAlgorithmException e) {
+        } catch (RuntimeException e) {
             AuthMod.logger.error("Password verification failed", e);
             return false;
         }
     }
 
-    private static byte[] hashWithSalt(String password, byte[] salt) throws NoSuchAlgorithmException {
-        MessageDigest md = MessageDigest.getInstance("SHA-256");
-
-        byte[] passwordBytes = password.getBytes(StandardCharsets.UTF_8);
-
-        md.update(salt);
-
-        byte[] hashed = md.digest(passwordBytes);
-        for (int i = 0; i < HASH_ITERATIONS - 1; i++) {
-            md.reset();
-            hashed = md.digest(hashed);
+    private static byte[] hashWithSalt(String password, byte[] salt) {
+        try {
+            PBEKeySpec spec = new PBEKeySpec(password.toCharArray(), salt, HASH_ITERATIONS, 256);
+            SecretKeyFactory skf = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+            return skf.generateSecret(spec).getEncoded();
+        } catch (Exception e) {
+            throw new RuntimeException("Ошибка хэширования пароля", e);
         }
-
-        return hashed;
     }
 
     private static String bytesToHex(byte[] bytes) {
