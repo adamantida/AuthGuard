@@ -98,9 +98,10 @@ graph TD
     A[Игрок] -->|Отправляет пароль| B[Сервер]
     B -->|Вызывает hashPassword| C[AuthHelper]
     C -->|Генерирует 16-байтную соль| D[RANDOM]
-    C -->|Выполняет 10 000 итераций| E[SHA-256]
+    C -->|Вызывает PBKDF2WithHmacSHA256<br/>с 10 000 итераций и 256-битным выводом| E[PBKDF2]
     C -->|Объединяет соль + хеш| F[Хранилище]
     F -->|Возвращает hex-строку| B
+
     style A fill:#4CAF50,stroke:#388E3C
     style B fill:#2196F3,stroke:#0D8AE9
     style C fill:#FF7700,stroke:#F57C00
